@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment / secrets (DB passwords, JWT keys later)
+.env
+
+# Frontend (for when React is added)
+node_modules/
+dist/
+build/
+
+# Course materials (not source code)
+*.docx
+*.pptx
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
