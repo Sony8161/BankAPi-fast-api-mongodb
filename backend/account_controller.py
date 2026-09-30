@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from models import Account, AccountIn, AccountUpdate, AmountIn
+from models import Account, AccountIn, AccountUpdate, AmountIn, Transaction, TransferIn
 from dependencies import account_service as service
 
 router = APIRouter(prefix="/api/accounts", tags=["Accounts"])
+transfer_router = APIRouter(prefix="/api/transfers", tags=["Transfers"])   # second router, same file
 
 
 @router.post("", response_model=Account, status_code=201)   # 201 = Created
@@ -15,6 +16,11 @@ def create_account(data: AccountIn):
 @router.get("", response_model=list[Account])
 def list_accounts():
     return service.list_accounts()
+
+@router.get("/premium", response_model=list[Account])
+def get_premium_accounts(threshold: float):
+    return service.get_premium_accounts(threshold)  
+
 
 @router.get("/{account_id}", response_model=Account)
 def get_account(account_id: int):
@@ -35,3 +41,13 @@ def deposit(account_id: int, data: AmountIn):
 @router.post("/{account_id}/withdraw", response_model=Account)
 def withdraw(account_id: int, data: AmountIn):
     return service.withdraw(account_id, data.amount)
+
+@router.get("/{account_id}/transactions", response_model=list[Transaction])
+def get_transactions(account_id: int):
+    return service.get_transactions(account_id)
+    # end of account routes
+    
+@transfer_router.post("", response_model=Transaction, status_code=201)
+def transfer(data: TransferIn):
+    return service.transfer(data)       
+

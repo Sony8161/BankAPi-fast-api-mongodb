@@ -1,19 +1,22 @@
 from decimal import Decimal
 from fastapi import HTTPException
-from models import Account, AccountIn, AccountUpdate
+from models import Account, AccountIn, AccountUpdate, Transaction, TransferIn, TxnType
 from account_repository import AccountRepository
-from user_service import UserService
+from customer_service import CustomerService
+from audit_service import AuditService
 
 
 class AccountService:
-    """Business rules for accounts. Reuses UserService for the "user exists" check."""
+    """Business rules for accounts. Reuses CustomerService for the "customer exists" check."""
 
-    def __init__(self, repo: AccountRepository, user_service: UserService):
+    def __init__(self, repo: AccountRepository, customer_service: CustomerService,
+                 audit_service: AuditService):
         self._repo = repo
-        self._user_service = user_service
+        self._customer_service = customer_service
+        self._audit = audit_service   # records every money movement (Priority 3)
 
     def get_account(self, account_id: int) -> Account:
-        # TODO: the single 404 check ("Account not found"), same pattern as get_user
+        # TODO: the single 404 check ("Account not found"), same pattern as get_customer
         account = self._repo.find_by_id(account_id)
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
@@ -22,12 +25,12 @@ class AccountService:
     def list_accounts(self) -> list[Account]:
         return self._repo.find_all()
 
-    def list_accounts_for_user(self, user_id: int) -> list[Account]:
-        self._user_service.get_user(user_id)  # will raise 404 if user not found
-        return self._repo.find_by_user_id(user_id)
+    def list_accounts_for_customer(self, customer_id: int) -> list[Account]:
+        self._customer_service.get_customer(customer_id)  # will raise 404 if customer not found
+        return self._repo.find_by_customer_id(customer_id)
 
     def create_account(self, data: AccountIn) -> Account:
-        self._user_service.get_user(data.user_id)  # will raise 404 if user not found
+        self._customer_service.get_customer(data.customer_id)  # will raise 404 if customer not found
         return self._repo.create(data)
 
     def update_account(self, account_id: int, data: AccountUpdate) -> Account:
@@ -45,13 +48,10 @@ class AccountService:
         if amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be positive")
         new_balance = account.balance + amount
-        return self._repo.update_balance(account_id, new_balance)   
-        # TODO: rules, in this order:
-        #   1. account must exist (404)            -> reuse get_account
-        #   2. amount must be > 0 (400 "Amount must be positive")
-        #   3. new balance = old balance + amount  -> repo.update_balance
-        # (step 5 will also record a transaction here)
-        raise NotImplementedError
+        result = self._repo.update_balance(account_id, new_balance)
+        self._audit.record(TxnType.DEPOSIT, amount, account.customer_id, to_account_id=account_id)
+        return result
+        
 
     def withdraw(self, account_id: int, amount: Decimal) -> Account:
         account = self.get_account(account_id)
@@ -60,4 +60,35 @@ class AccountService:
         if amount > account.balance:
             raise HTTPException(status_code=400, detail="Insufficient funds")
         new_balance = account.balance - amount
-        return self._repo.update_balance(account_id, new_balance)
+        result = self._repo.update_balance(account_id, new_balance)
+        self._audit.record(TxnType.WITHDRAW, amount, account.customer_id, from_account_id=account_id)
+        return result
+
+    # ---------- Priority 2 ----------
+    def get_premium_accounts(self, threshold: float) -> list[Account]:
+        if threshold < 0:
+            raise HTTPException(status_code=400, detail="Threshold must be non-negative")
+        return self._repo.find_accounts_with_balance_above(Decimal(str(threshold)))
+
+    def transfer(self, data: TransferIn) -> Transaction:
+        rules = []
+        from_account = self.get_account(data.from_account_id)
+        to_account = self.get_account(data.to_account_id)
+        if from_account.id == to_account.id:
+            raise HTTPException(status_code=400, detail="Cannot transfer to the same account") 
+        if data.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be positive")
+        if data.amount > from_account.balance:
+            raise HTTPException(status_code=400, detail="Insufficient funds")   
+        new_from_balance = from_account.balance - data.amount
+        new_to_balance = to_account.balance + data.amount
+        self._repo.update_balance(from_account.id, new_from_balance)
+        self._repo.update_balance(to_account.id, new_to_balance)
+        return self._audit.record(TxnType.TRANSFER, data.amount, from_account.customer_id, from_account_id=from_account.id, to_account_id=to_account.id)
+       
+
+    # ---------- Priority 3 ----------
+    def get_transactions(self, account_id: int) -> list[Transaction]:
+        self.get_account(account_id)  # will raise 404 if not found
+        return self._audit.list_for_account(account_id)
+        raise NotImplementedError

@@ -1,16 +1,21 @@
 """Composition root: the ONE place objects are created and wired together.
 
-Every controller imports from here, so they all share the SAME repositories
-(the same in-memory dicts). When we switch to MongoDB, this is the file where
-UserRepository() becomes MongoUserRepository(db); nothing else changes.
+Every controller imports from here, so they all share the same objects.
+Switching from in-memory to MongoDB only changed this file and the repositories:
+services and controllers didn't notice. That's the point of the layers.
 """
+from db import db
 from account_repository import AccountRepository
 from account_service import AccountService
-from user_repository import UserRepository
-from user_service import UserService
+from audit_repository import AuditRepository
+from audit_service import AuditService
+from customer_repository import CustomerRepository
+from customer_service import CustomerService
 
-user_repo = UserRepository()
-account_repo = AccountRepository()
+customer_repo = CustomerRepository(db)
+account_repo = AccountRepository(db)
+audit_repo = AuditRepository(db)
 
-user_service = UserService(user_repo, account_repo)
-account_service = AccountService(account_repo, user_service)
+audit_service = AuditService(audit_repo)
+customer_service = CustomerService(customer_repo, account_repo)
+account_service = AccountService(account_repo, customer_service, audit_service)

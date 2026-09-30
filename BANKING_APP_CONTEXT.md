@@ -17,7 +17,7 @@ Simple bank app where users can create an account, view account details, deposit
 
 ### Stack
 - Backend: **Python + FastAPI** (chosen over Flask for built-in Swagger + Pydantic validation)
-- Database: **MongoDB Atlas** (switched back from MySQL on 2026-09-30, even though the assignment mentions an SQL script). Decide at step 6: keep int ids (counters collection) or use ObjectId strings.
+- Database: **MongoDB Atlas** (switched back from MySQL on 2026-09-30, even though the assignment mentions an SQL script). Decided: keep int ids via a `counters` collection (`db.next_id`). Money = Decimal128 via a codec in `db.py`. DB name `banking`.
 - Frontend: React
 - Tools: VS Code, Postman, Swagger (`http://127.0.0.1:8000/docs`)
 
@@ -88,27 +88,36 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
 1. ✅ User CRUD in one file, in-memory, tested in Swagger
 2. ✅ Split into layers (models / repository / service / controller)
 3. ✅ Account CRUD, linked to a user (+ cascade delete)
-4. ⏳ **CURRENT:** Service logic: deposit and withdraw with the business rules
-5. Transactions: record them and add the history endpoint
-6. Swap in-memory repositories for MongoDB Atlas (only the repository layer + dependencies.py change)
-7. Postman collection and Swagger check
-8. React frontend
-9. Bonus: JWT, transfers, AWS
+4. ✅ Deposit and withdraw with the business rules (committed in-memory version: c7e0962)
+5. ⏳ **CURRENT: MongoDB integration (trainer's task list)**
+   - Priority 1: Customers CRUD <-> Mongo (Users renamed to Customers, `/api/customers`)
+   - Priority 2: Accounts CRUD in Mongo, 1 customer has many accounts, `getPremiumAccounts(threshold)` (balance >= threshold), deposit/withdraw/transfer. Optional: filtering/search on GET /api/accounts
+   - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
+   - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
+6. React frontend
+7. Bonus: JWT, pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
 
-## Current state (step 4)
-Step 3 done and tested (account CRUD, user's accounts route, cascade delete).
-MongoDB Atlas is connected: `backend/.env` holds `MONGODB_URI` (gitignored), `backend/test_mongo.py` pings it. Used at step 6.
-Step 4 starter TODOs in `backend/`:
-- `models.py` — **TODO:** `AmountIn` (amount: Money).
-- `account_repository.py` — **TODO:** `update_balance(account_id, new_balance)` (storage only).
-- `account_service.py` — **TODO:** `deposit`, `withdraw` (404, amount > 0, insufficient funds → 400). Suggested private helper `_check_positive`.
-- `account_controller.py` — **TODO:** POST `/{id}/deposit` and `/{id}/withdraw`.
+## Current state (step 5: MongoDB)
+Scaffold with TODOs in `backend/` (a full reference solution was tested by Claude: 30/30 checks):
+- `db.py` — done. Connection from `.env`, Decimal codec, `next_id(db, name)`, `from_doc(Model, doc)`.
+- `customer_repository.py` — find_by_id + create done as examples. **TODO:** find_all, update, delete.
+- `account_repository.py` — **TODO:** all methods incl. `find_premium` ($gte), `delete_by_customer_id` (delete_many).
+- `audit_repository.py` — **TODO:** create, find_all, find_by_id, find_by_account_id ($or).
+- `audit_service.py` — **TODO:** record, list_transactions, get_transaction (404), list_for_account.
+- `account_service.py` — **TODO:** audit records in deposit/withdraw, get_premium_accounts, transfer, get_transactions.
+- `models.py` — **TODO:** TransferIn and TransactionIn fields (names listed in comments).
+- Controllers — **TODO:** premium route (above `/{account_id}`!), `/{id}/transactions`, POST `/api/transfers`, GET `/api/audit/transactions/{id}`.
+- `dependencies.py`, `main.py`, `requirements.txt` — done.
+Routes when finished: /api/customers (CRUD + /{id}/accounts), /api/accounts (CRUD, /premium?threshold=, /{id}/deposit, /{id}/withdraw, /{id}/transactions), POST /api/transfers, /api/audit/transactions (+ /{id}).
+GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git (name says "nodb").
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
 - Use Pydantic v2's `model_copy(update=...)`, not `.copy()`
 - In-memory data resets every time the server reloads
 - Wire objects in one place (`dependencies.py`, the composition root); two `UserRepository()` calls = two separate dicts
+- Audit records are never updated or deleted (cascade delete keeps them)
+- Declare fixed routes like `/premium` before `/{account_id}`
 
 ## OOP concepts to connect along the way
-Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`User(UserIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.
+Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`Customer(CustomerIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.
