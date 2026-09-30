@@ -87,25 +87,22 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
 ## Roadmap
 1. ✅ User CRUD in one file, in-memory, tested in Swagger
 2. ✅ Split into layers (models / repository / service / controller)
-3. ⏳ **CURRENT:** Account CRUD, linked to a user (+ cascade delete)
-4. Service logic: deposit and withdraw with the business rules
+3. ✅ Account CRUD, linked to a user (+ cascade delete)
+4. ⏳ **CURRENT:** Service logic: deposit and withdraw with the business rules
 5. Transactions: record them and add the history endpoint
 6. Swap in-memory repositories for MongoDB Atlas (only the repository layer + dependencies.py change)
 7. Postman collection and Swagger check
 8. React frontend
 9. Bonus: JWT, transfers, AWS
 
-## Current state (step 3)
-Step 2 is done and working (User CRUD through all layers).
-Starter files in `backend/`:
-- `models.py` — added `CamelModel` base (snake_case in Python, camelCase in JSON), `Money` type (Decimal, sent as a number), `AccountType` enum. **I need to fill:** `AccountIn`, `AccountUpdate` (no balance), `Account` fields.
-- `account_repository.py` — **TODO:** find_all, find_by_id, find_by_user_id, create, update (keep balance), delete, delete_by_user_id.
-- `account_service.py` — **TODO:** get_account (404), list_accounts, list_accounts_for_user, create_account (user must exist), update_account, delete_account.
-- `account_controller.py` — POST done as an example. **TODO:** GET all, GET by id, PUT, DELETE.
-- `dependencies.py` — done. Creates and wires all repos/services once so controllers share them.
-- `user_service.py` — now takes `account_repo`. **TODO:** cascade delete in delete_user.
-- `user_controller.py` — imports from dependencies. **TODO:** GET `/api/users/{id}/accounts`.
-- `main.py` — includes the account router. Done.
+## Current state (step 4)
+Step 3 done and tested (account CRUD, user's accounts route, cascade delete).
+MongoDB Atlas is connected: `backend/.env` holds `MONGODB_URI` (gitignored), `backend/test_mongo.py` pings it. Used at step 6.
+Step 4 starter TODOs in `backend/`:
+- `models.py` — **TODO:** `AmountIn` (amount: Money).
+- `account_repository.py` — **TODO:** `update_balance(account_id, new_balance)` (storage only).
+- `account_service.py` — **TODO:** `deposit`, `withdraw` (404, amount > 0, insufficient funds → 400). Suggested private helper `_check_positive`.
+- `account_controller.py` — **TODO:** POST `/{id}/deposit` and `/{id}/withdraw`.
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)

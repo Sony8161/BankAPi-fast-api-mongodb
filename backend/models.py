@@ -35,16 +35,32 @@ class AccountType(str, Enum):   # only these values are allowed (Swagger shows a
 
 
 class AccountIn(CamelModel):
+    @staticmethod
+    def example() -> "AccountIn":
+        return AccountIn(user_id=1, account_type=AccountType.SAVINGS)
+
     """POST /api/accounts body: {"userId": 1, "accountType": "SAVINGS"}"""
     # TODO: user_id (int) and account_type (AccountType)
+    user_id: int
+    account_type: AccountType
 
 
 class AccountUpdate(CamelModel):
     """PUT body. No balance on purpose: only deposit/withdraw may change money."""
     # TODO: account_type
+    account_type: AccountType
 
 
 class Account(CamelModel):
     """What the API returns."""
     # TODO: id, user_id, account_type, balance (type Money, default Decimal("0.00"))
     # Think: could this inherit from AccountIn, the way User inherits UserIn?
+    id: int
+    user_id: int
+    account_type: AccountType
+    balance: Money = Decimal("0.00")
+
+
+class AmountIn(CamelModel):
+    """Body for deposit/withdraw: {"amount": 500}"""
+    # TODO: amount (type Money)

@@ -34,5 +34,7 @@ def list_users():
     return service.list_users()
 
 
-# TODO: GET /api/users/{user_id}/accounts -> list[Account]
-#       one-liner calling account_service.list_accounts_for_user
+@router.get("/{user_id}/accounts", response_model=list[Account])
+def list_accounts_for_user(user_id: int):
+    return account_service.list_accounts_for_user(user_id)
+

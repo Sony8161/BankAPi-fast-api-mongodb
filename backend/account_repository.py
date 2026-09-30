@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from models import Account, AccountIn, AccountUpdate
 
 
@@ -9,31 +11,46 @@ class AccountRepository:
         self._next_id = 1
 
     def find_all(self) -> list[Account]:
-        # TODO
-        raise NotImplementedError
+        return list(self._accounts.values())
 
     def find_by_id(self, account_id: int) -> Account | None:
-        # TODO: None if missing (same as UserRepository)
-        raise NotImplementedError
+        return self._accounts.get(account_id)
 
     def find_by_user_id(self, user_id: int) -> list[Account]:
-        # TODO: every account whose user_id matches. Hint: list comprehension
-        raise NotImplementedError
+        return [account for account in self._accounts.values() if account.user_id == user_id]
 
     def create(self, data: AccountIn) -> Account:
-        # TODO: new Account with the next id. Balance comes from the model default.
-        raise NotImplementedError
+        account = Account(
+            id=self._next_id,
+            user_id=data.user_id,
+            account_type=data.account_type,
+            balance=Decimal("0.00"),
+        )
+        self._accounts[self._next_id] = account
+        self._next_id += 1
+        return account
 
     def update(self, account_id: int, data: AccountUpdate) -> Account:
-        # TODO: change ONLY account_type; keep id, user_id and balance.
-        # Hint: existing.model_copy(update=data.model_dump())
-        raise NotImplementedError
+        existing = self._accounts.get(account_id)
+        if not existing:
+            raise ValueError("Account not found")
+        updated = existing.model_copy(update=data.model_dump())
+        self._accounts[account_id] = updated
+        return updated
 
     def delete(self, account_id: int) -> None:
-        # TODO
-        raise NotImplementedError
+        if account_id in self._accounts:
+            del self._accounts[account_id]
 
     def delete_by_user_id(self, user_id: int) -> None:
-        # TODO: remove every account this user owns (used by the cascade delete).
-        # Careful: you can't delete from a dict while looping over that same dict.
-        raise NotImplementedError
+        to_delete = [account_id for account_id, account in self._accounts.items() if account.user_id == user_id]
+        for account_id in to_delete:
+            del self._accounts[account_id]
+
+    def update_balance(self, account_id: int, new_balance: Decimal) -> Account:
+        existing = self._accounts.get(account_id)
+        if not existing:
+            raise ValueError("Account not found")
+        updated = existing.model_copy(update={"balance": new_balance})
+        self._accounts[account_id] = updated
+        return updated

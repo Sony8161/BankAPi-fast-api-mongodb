@@ -33,5 +33,6 @@ class UserService:
 
     def delete_user(self, user_id: int) -> None:
         self.get_user(user_id)  # Reuse the 404 check
-        # TODO: cascade: delete this user's accounts first
+        #delete this user's accounts first
+        self._account_repo.delete_by_user_id(user_id)
         self._repo.delete(user_id)
