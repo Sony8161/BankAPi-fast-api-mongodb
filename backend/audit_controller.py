@@ -10,4 +10,6 @@ def list_transactions():
     return service.list_transactions()   # example, done for you
 
 
-# TODO: GET "/transactions/{txn_id}"  -> Transaction   (trace one transaction)
+@router.get("/transactions/{txn_id}", response_model=Transaction)
+def get_transaction(txn_id: int):
+    return service.get_transaction(txn_id)   # example, done for you

@@ -89,26 +89,23 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
 2. ✅ Split into layers (models / repository / service / controller)
 3. ✅ Account CRUD, linked to a user (+ cascade delete)
 4. ✅ Deposit and withdraw with the business rules (committed in-memory version: c7e0962)
-5. ⏳ **CURRENT: MongoDB integration (trainer's task list)**
+5. ✅ MongoDB integration (trainer's task list) — all 3 priorities done 2026-09-30
    - Priority 1: Customers CRUD <-> Mongo (Users renamed to Customers, `/api/customers`)
    - Priority 2: Accounts CRUD in Mongo, 1 customer has many accounts, `getPremiumAccounts(threshold)` (balance >= threshold), deposit/withdraw/transfer. Optional: filtering/search on GET /api/accounts
    - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
-6. React frontend
+6. ⏳ **NEXT:** React frontend (needs CORS in main.py)
 7. Bonus: JWT, pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
 
-## Current state (step 5: MongoDB)
-Scaffold with TODOs in `backend/` (a full reference solution was tested by Claude: 30/30 checks):
-- `db.py` — done. Connection from `.env`, Decimal codec, `next_id(db, name)`, `from_doc(Model, doc)`.
-- `customer_repository.py` — find_by_id + create done as examples. **TODO:** find_all, update, delete.
-- `account_repository.py` — **TODO:** all methods incl. `find_premium` ($gte), `delete_by_customer_id` (delete_many).
-- `audit_repository.py` — **TODO:** create, find_all, find_by_id, find_by_account_id ($or).
-- `audit_service.py` — **TODO:** record, list_transactions, get_transaction (404), list_for_account.
-- `account_service.py` — **TODO:** audit records in deposit/withdraw, get_premium_accounts, transfer, get_transactions.
-- `models.py` — **TODO:** TransferIn and TransactionIn fields (names listed in comments).
-- Controllers — **TODO:** premium route (above `/{account_id}`!), `/{id}/transactions`, POST `/api/transfers`, GET `/api/audit/transactions/{id}`.
-- `dependencies.py`, `main.py`, `requirements.txt` — done.
-Routes when finished: /api/customers (CRUD + /{id}/accounts), /api/accounts (CRUD, /premium?threshold=, /{id}/deposit, /{id}/withdraw, /{id}/transactions), POST /api/transfers, /api/audit/transactions (+ /{id}).
+## Current state (step 5 done)
+All 3 priorities work: Customers CRUD, Accounts CRUD + premium + deposit/withdraw/transfer, Audit trail.
+Verified by Claude: 30/30 checks on Duong's code, and the Postman collection (36 requests, 65 assertions) passes.
+- `backend/Duong_Lam_Banking-app.postman_collection.json` — real Postman v2.1 collection with test scripts (Run collection). Goes in the trainer's Google Drive folder.
+- `README.md` — run steps, endpoints, structure (UTF-8).
+- Optional cleanup: dead code after `return` (customer_repository.update, account_service.get_transactions), unused `rules = []` in transfer,
+  dummy cheat-sheet functions at the bottom of account_repository.py, redundant `self._repo.find_by_id` in update_account.
+- Still to do by Duong: push to GitHub, add repo link to the GitExcelTracker, upload the Postman collection to Google Drive.
+Routes: /api/customers (CRUD + /{id}/accounts), /api/accounts (CRUD, /premium?threshold=, /{id}/deposit, /{id}/withdraw, /{id}/transactions), POST /api/transfers, /api/audit/transactions (+ /{id}).
 GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git (name says "nodb").
 
 ## Lessons so far
@@ -118,6 +115,8 @@ GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git (name says 
 - Wire objects in one place (`dependencies.py`, the composition root); two `UserRepository()` calls = two separate dicts
 - Audit records are never updated or deleted (cascade delete keeps them)
 - Declare fixed routes like `/premium` before `/{account_id}`
+- `@staticmethod` methods take no `self`; a method name must match between service and repository
+- Save files before testing: the server only sees what's on disk
 
 ## OOP concepts to connect along the way
 Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`Customer(CustomerIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.

@@ -67,11 +67,36 @@ class AccountRepository:
 
 
 def _doc_to_account(doc) -> Account:
-    return from_doc(Account, doc)   
+    return from_doc(Account, doc) if doc else None
 # ---------- Mongo cheat sheet (SQL in comments) ----------
-# find()                                         SELECT *
-# find({"customer_id": 1})                       WHERE customer_id = 1
-# find({"balance": {"$gte": 1000}})              WHERE balance >= 1000
-# find_one({"_id": 5})                           one document, or None
-# find_one_and_update(filter, {"$set": {...}}, return_document=ReturnDocument.AFTER)
-# delete_one(filter) / delete_many(filter)
+
+
+def find():
+    # find()                                         SELECT *
+    pass    
+def find_by_customer_id():
+    # find({"customer_id": 1})                       WHERE customer_id = 1
+    pass
+
+def find_accounts_with_balance_above():
+    # find({"balance": {"$gte": 1000}})              WHERE balance >= 1000
+    pass
+
+def find_by_id():
+    # find_one({"_id": 5})                           one document, or None
+    pass
+
+def find_one_and_update():
+    # find_one_and_update(filter, {"$set": {...}}, return_document=ReturnDocument.AFTER)
+    pass    
+
+
+def delete_one():
+    # delete_one(filter)
+    pass
+
+def delete_many():
+    # delete_many(filter)
+    pass
+
+

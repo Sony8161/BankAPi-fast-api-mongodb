@@ -16,7 +16,6 @@ class AccountService:
         self._audit = audit_service   # records every money movement (Priority 3)
 
     def get_account(self, account_id: int) -> Account:
-        # TODO: the single 404 check ("Account not found"), same pattern as get_customer
         account = self._repo.find_by_id(account_id)
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
@@ -68,7 +67,7 @@ class AccountService:
     def get_premium_accounts(self, threshold: float) -> list[Account]:
         if threshold < 0:
             raise HTTPException(status_code=400, detail="Threshold must be non-negative")
-        return self._repo.find_accounts_with_balance_above(Decimal(str(threshold)))
+        return self._repo.find_premium(Decimal(str(threshold)))
 
     def transfer(self, data: TransferIn) -> Transaction:
         rules = []

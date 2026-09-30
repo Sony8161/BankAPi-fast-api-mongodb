@@ -41,21 +41,20 @@ class AccountIn(CamelModel):
         return AccountIn(customer_id=1, account_type=AccountType.SAVINGS)
 
     """POST /api/accounts body: {"customerId": 1, "accountType": "SAVINGS"}"""
-    # TODO: customer_id (int) and account_type (AccountType)
+    
     customer_id: int
     account_type: AccountType
 
 
 class AccountUpdate(CamelModel):
     """PUT body. No balance on purpose: only deposit/withdraw may change money."""
-    # TODO: account_type
+    
     account_type: AccountType
 
 
 class Account(CamelModel):
     """What the API returns."""
-    # TODO: id, customer_id, account_type, balance (type Money, default Decimal("0.00"))
-    # Think: could this inherit from AccountIn, the way Customer inherits CustomerIn?
+    # Inherits from AccountIn? Could be considered, but here we explicitly list all fields. 
     id: int
     customer_id: int
     account_type: AccountType
@@ -70,7 +69,10 @@ class AmountIn(CamelModel):
 
 class TransferIn(CamelModel):
     """POST /api/transfers body: {"fromAccountId": 1, "toAccountId": 2, "amount": 50}"""
-    # TODO: from_account_id (int), to_account_id (int), amount (Money)
+    
+    from_account_id: int
+    to_account_id: int
+    amount: Money
 
 
 # ---------- Audit (transactions) ----------
@@ -82,14 +84,13 @@ class TxnType(str, Enum):
 
 class TransactionIn(CamelModel):
     """One audit record. Answers: what? how much? who? which accounts? when?"""
-    # TODO: use exactly these names (the repository queries them):
-    #   type: TxnType
-    #   amount: Money
-    #   customer_id: int                       WHO started it
-    #   from_account_id: int | None = None     money LEFT this account (withdraw, transfer)
-    #   to_account_id: int | None = None       money ENTERED this account (deposit, transfer)
-    #   timestamp: datetime                    WHEN (UTC)
-    # Why "| None"? A deposit has no "from" account and a withdrawal has no "to" account.
+    type: TxnType
+    amount: Money
+    customer_id: int
+    from_account_id: int | None = None
+    to_account_id: int | None = None
+    timestamp: datetime
+
 
 
 class Transaction(TransactionIn):   # same In/Out pattern as Customer(CustomerIn)

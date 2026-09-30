@@ -15,18 +15,28 @@ class AuditService:
 
     def record(self, txn_type: TxnType, amount: Decimal, customer_id: int,
                from_account_id: int | None = None, to_account_id: int | None = None) -> Transaction:
-        # TODO: build a TransactionIn from these values, with timestamp=datetime.now(timezone.utc),
-        #       then save it with the repository and return the result
-        raise NotImplementedError
+        
+        
+        txn_in = TransactionIn(
+            type=txn_type,
+            amount=amount,
+            customer_id=customer_id,
+            from_account_id=from_account_id,
+            to_account_id=to_account_id,
+            timestamp=datetime.now(timezone.utc)
+        )
+        return self._repo.create(txn_in)
+
+        #  raise NotImplementedError
 
     def list_transactions(self) -> list[Transaction]:
-        # TODO
-        raise NotImplementedError
+        return self._repo.find_all()
 
     def get_transaction(self, txn_id: int) -> Transaction:
-        # TODO: 404 "Transaction not found" (same pattern as get_customer)
-        raise NotImplementedError
+        txn = self._repo.find_by_id(txn_id)
+        if not txn:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        return txn
 
     def list_for_account(self, account_id: int) -> list[Transaction]:
-        # TODO
-        raise NotImplementedError
+        return self._repo.find_by_account_id(account_id)
