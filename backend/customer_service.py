@@ -4,14 +4,17 @@ from fastapi import HTTPException
 from models import Customer, CustomerIn
 from customer_repository import CustomerRepository
 from account_repository import AccountRepository
+from user_repository import UserRepository
 
 
 class CustomerService:
     """Business logic. Talks to the repository, never to routes."""
 
-    def __init__(self, repo: CustomerRepository, account_repo: AccountRepository):
+    def __init__(self, repo: CustomerRepository, account_repo: AccountRepository,
+                 user_repo: UserRepository):
         self._repo = repo
         self._account_repo = account_repo   # needed for the cascade delete
+        self._user_repo = user_repo         # ...and their login goes too
 
     def get_customer(self, customer_id: int) -> Customer:
         customer = self._repo.find_by_id(customer_id)
@@ -36,6 +39,7 @@ class CustomerService:
         self.get_customer(customer_id)  # Reuse the 404 check
         #delete this customer's accounts first
         self._account_repo.delete_by_customer_id(customer_id)
+        self._user_repo.delete_by_customer_id(customer_id)
         self._repo.delete(customer_id)
 
 

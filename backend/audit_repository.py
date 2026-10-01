@@ -41,6 +41,12 @@ class AuditRepository:
         doc = Transactions.find_one({"_id": txn_id})
         return self._doc_to_transaction(doc)
 
+    def find_by_account_ids(self, account_ids: list[int]) -> list[Transaction]:
+        # every transaction that touched ANY of these accounts (money in or out), newest first
+        docs = self._col.find({"$or": [{"from_account_id": {"$in": account_ids}},
+                                       {"to_account_id": {"$in": account_ids}}]}).sort("_id", -1)
+        return [self._doc_to_transaction(doc) for doc in docs]
+
     def find_by_account_id(self, account_id: int) -> list[Transaction]:
         Transactions = self._col
         docs = Transactions.find({"$or": [{"from_account_id": account_id}, {"to_account_id": account_id}]}).sort("_id", -1)

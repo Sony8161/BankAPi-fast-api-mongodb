@@ -95,8 +95,9 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
    - Priority 2: Accounts CRUD in Mongo, 1 customer has many accounts, `getPremiumAccounts(threshold)` (balance >= threshold), deposit/withdraw/transfer. Optional: filtering/search on GET /api/accounts
    - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
-6. ⏳ **CURRENT:** React frontend (branch `react-frontend`). 38/38 browser test cases pass: frontend/test-results/frontend_test_results.json
-7. Bonus: JWT, pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
+6. ✅ React frontend (branch `react-frontend`). 38/38 browser test cases pass: frontend/test-results/frontend_test_results.json (old UI, before login)
+7. ⏳ **CURRENT:** Bank-style UI + login system: JWT, bcrypt, roles ADMIN / CUSTOMER (suggested branch `auth-jwt`)
+8. Bonus: pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
 
 ## Current state (step 6: React frontend)
 Backend: done and on MongoDB (main = 60efed3). CORS added in main.py for http://localhost:5173.
@@ -113,6 +114,20 @@ Frontend (Vite + React 19 + react-router + Axios) in `frontend/`. Run: `cd front
 - Trainer's list still open: tracker links, Postman JSON + Q&A answers in Google Drive. Optional later: JWT (admin/customer roles, bcrypt).
 Study guide doc (with a Line by line tab): https://claude.ai/code/artifact/ed7df4c3-3c60-46d7-884a-0104760973ad
 GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-mongodb.git (renamed from BankAPi-fast-api-nodb). Branches: api-base (in-memory API, c7e0962 + AmountIn fix) → mongodb-integration (60efed3) → react-frontend (full app). main = full app.
+
+## Current state (step 7: login, roles, bank-style UI) — 2026-10-01
+Built by Claude (API-tested 39/39, Postman 51 requests / 89 assertions, browser walkthrough with screenshots):
+- Backend: models (Role, LoginIn, RegisterIn, CreateLoginIn, User, UserInDB, TokenOut), security.py (bcrypt + PyJWT HS256,
+  JWT_SECRET in .env), user_repository.py (`users` collection, unique username index), auth_service.py, auth_guard.py
+  (get_current_user, require_admin, ensure_owner), auth_controller.py (/api/auth/login, register, me, users), role checks on
+  every customer/account/transfer/audit route, GET /api/customers/{id}/transactions, admin login created on startup
+  (admin / admin123), seed_demo.py (john / john123, jane / jane123). requirements.txt adds pyjwt, bcrypt.
+- Frontend: auth/ (AuthContext, ProtectedRoute, session.js localStorage), api.js interceptors (adds Bearer token, 401 -> logout),
+  layouts (PublicLayout header, AppLayout sidebar), landing / login / register pages, customer portal (/app: overview, account
+  page with deposit/withdraw, transfer with receipt, activity), admin portal (/admin: dashboard stats, customers, customer detail
+  with online banking + open account, search, audit log), new index.css design.
+- TODO (Duong), in order: backend/auth_service.py login (line 17), backend/auth_guard.py get_current_user (line 26),
+  frontend/src/pages/LoginPage.jsx handleSubmit (line 24).
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)

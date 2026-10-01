@@ -31,3 +31,14 @@ export async function getAccountTransactions(id) {
   const res = await api.get(`/accounts/${id}/transactions`)
   return res.data
 }
+
+// admin only
+export async function getAllAccounts() {
+  const res = await api.get('/accounts')
+  return res.data
+}
+
+export async function transfer(fromAccountId, toAccountId, amount) {
+  const res = await api.post('/transfers', { fromAccountId, toAccountId, amount })
+  return res.data // the audit record of the transfer
+}

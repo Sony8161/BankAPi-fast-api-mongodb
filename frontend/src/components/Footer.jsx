@@ -3,7 +3,7 @@ export default function Footer() {
   const year = new Date().getFullYear()
   return (
     <footer className="footer">
-      <p>© {year} Simple Bank · React + FastAPI + MongoDB Atlas</p>
+      <p>© {year} Simple Bank · React + FastAPI + MongoDB Atlas · A learning project, not a real bank</p>
     </footer>
   )
 }

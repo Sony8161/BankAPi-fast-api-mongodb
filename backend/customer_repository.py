@@ -51,6 +51,10 @@ class CustomerRepository:
         docs = self._col.find({"name": {"$regex": "^" + re.escape(name), "$options": "i"}})
         return [from_doc(Customer, d) for d in docs]
 
+    def find_by_email(self, email: str) -> Customer | None:
+        # exact match, ignoring case: ^...$ = the whole string
+        return from_doc(Customer, self._col.find_one({"email": {"$regex": "^" + re.escape(email) + "$", "$options": "i"}}))
+
     def find_by_ids(self, ids: list[int]) -> list[Customer]:
         # TODO: every customer whose _id is in the list: {"_id": {"$in": ids}}
         #   SQL: WHERE id IN (1, 3, 7)

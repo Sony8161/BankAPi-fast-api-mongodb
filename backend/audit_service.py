@@ -40,3 +40,6 @@ class AuditService:
 
     def list_for_account(self, account_id: int) -> list[Transaction]:
         return self._repo.find_by_account_id(account_id)
+
+    def list_for_accounts(self, account_ids: list[int]) -> list[Transaction]:
+        return self._repo.find_by_account_ids(account_ids) if account_ids else []

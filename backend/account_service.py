@@ -88,3 +88,8 @@ class AccountService:
     def get_transactions(self, account_id: int) -> list[Transaction]:
         self.get_account(account_id)  # will raise 404 if not found
         return self._audit.list_for_account(account_id)
+
+    def list_transactions_for_customer(self, customer_id: int) -> list[Transaction]:
+        """Everything that touched any of this customer's accounts, including money sent TO them."""
+        accounts = self.list_accounts_for_customer(customer_id)   # 404 if no such customer
+        return self._audit.list_for_accounts([a.id for a in accounts])

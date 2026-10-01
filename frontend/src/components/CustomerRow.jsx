@@ -10,7 +10,7 @@ export default function CustomerRow({ customer, onDelete }) {
       <td>{customer.email}</td>
       <td>
         <div className="actions">
-          <Link to={`/customers/${customer.id}`}>View</Link>
+          <Link to={`/admin/customers/${customer.id}`}>View</Link>
           {onDelete && (
             <button className="danger" onClick={() => onDelete(customer)}>
               Delete

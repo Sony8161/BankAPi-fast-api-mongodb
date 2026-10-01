@@ -1,8 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from auth_guard import require_admin
 from models import Transaction
 from dependencies import audit_service as service
 
-router = APIRouter(prefix="/api/audit", tags=["Audit"])
+# dependencies on the ROUTER = every route below is admin-only
+router = APIRouter(prefix="/api/audit", tags=["Audit"], dependencies=[Depends(require_admin)])
 
 
 @router.get("/transactions", response_model=list[Transaction])

@@ -1,16 +1,24 @@
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
+import Logo from './Logo.jsx'
+import { homeFor, useAuth } from '../auth/AuthContext.jsx'
 
-// CHILD of App. It receives `title` as a PROP (data passed down from the parent).
-// The { title } in the brackets "destructures" props: it is the same as props.title.
+// Header for the PUBLIC pages (home, sign in, open an account).
+// Signed-in screens use the sidebar in layouts/AppLayout.jsx instead.
 export default function Header({ title }) {
+  const { user } = useAuth()
   return (
     <header className="header">
-      <h1 className="logo">{title}</h1>
-      <nav className="nav">
-        {/* NavLink = a link that also knows when its page is open (adds class "active") */}
+      <Logo />
+      <nav className="nav" aria-label={title}>
         <NavLink to="/" end>Home</NavLink>
-        <NavLink to="/customers">Customers</NavLink>
-        <NavLink to="/search">Search</NavLink>
+        {user ? (
+          <Link className="btn btn-primary" to={homeFor(user)}>Go to dashboard</Link>
+        ) : (
+          <>
+            <NavLink to="/login">Sign in</NavLink>
+            <Link className="btn btn-primary" to="/register">Open an account</Link>
+          </>
+        )}
       </nav>
     </header>
   )

@@ -43,3 +43,9 @@ export async function getPremiumCustomers(threshold) {
   const res = await api.get('/customers/premium', { params: { threshold } }) // ?threshold=1000
   return res.data
 }
+
+// Every transaction that touched this customer's accounts (money in and out), newest first.
+export async function getCustomerTransactions(id) {
+  const res = await api.get(`/customers/${id}/transactions`)
+  return res.data
+}

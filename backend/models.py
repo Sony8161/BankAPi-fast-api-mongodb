@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
 from pydantic.alias_generators import to_camel
 
 
@@ -95,3 +95,51 @@ class TransactionIn(CamelModel):
 
 class Transaction(TransactionIn):   # same In/Out pattern as Customer(CustomerIn)
     id: int
+
+
+# ---------- Login / users (JWT) ----------
+class Role(str, Enum):
+    ADMIN = "ADMIN"         # bank staff: sees and manages everyone
+    CUSTOMER = "CUSTOMER"   # sees only their own customer record, accounts and transactions
+
+
+class LoginIn(CamelModel):
+    """POST /api/auth/login body: {"username": "admin", "password": "admin123"}"""
+    username: str
+    password: str = Field(max_length=72)   # bcrypt only reads the first 72 bytes
+
+
+class RegisterIn(CamelModel):
+    """POST /api/auth/register body: a NEW customer and their login, in one step."""
+    name: str = Field(min_length=1)
+    email: str = Field(min_length=3)
+    username: str = Field(min_length=3, max_length=30)
+    password: str = Field(min_length=6, max_length=72)
+
+
+class CreateLoginIn(CamelModel):
+    """POST /api/auth/users body (admin only): turn on online banking for an existing customer."""
+    customer_id: int
+    username: str = Field(min_length=3, max_length=30)
+    password: str = Field(min_length=6, max_length=72)
+
+
+class User(CamelModel):
+    """A login, as the API returns it. Never includes the password hash."""
+    id: int
+    username: str
+    role: Role
+    customer_id: int | None = None   # which customer this login belongs to (None for admins)
+
+
+class UserInDB(User):
+    """A login as stored in MongoDB. Only the repository and AuthService see this."""
+    password_hash: str
+
+
+class TokenOut(CamelModel):
+    """Login response: {"accessToken": "eyJ...", "tokenType": "bearer", "user": {...}}"""
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
