@@ -41,13 +41,13 @@ class CustomerService:
 
     # ---------- Search / filter ----------
     def search_customers(self, name: str) -> list[Customer]:
-        # TODO: return self._repo.find_by_name(name.strip())   (strip = remove spaces at the ends)
-        raise NotImplementedError
+        
+        return self._repo.find_by_name(name.strip())
 
     def premium_customers(self, threshold: float) -> list[Customer]:
-        # TODO: customers who own at least one account with balance >= threshold.
-        #   1. 400 if threshold < 0 (same message style as get_premium_accounts)
-        #   2. accounts = self._account_repo.find_premium(Decimal(str(threshold)))
-        #   3. ids = {a.customer_id for a in accounts}    <- a set: each customer once
-        #   4. return self._repo.find_by_ids(list(ids))
-        raise NotImplementedError
+        
+        if threshold < 0:
+            raise HTTPException(status_code=400, detail="Threshold must be non-negative")
+        accounts = self._account_repo.find_premium(Decimal(str(threshold)))
+        ids = {a.customer_id for a in accounts}
+        return self._repo.find_by_ids(list(ids))

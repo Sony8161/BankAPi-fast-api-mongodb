@@ -22,6 +22,7 @@ export default function SearchPage() {
 async function run(newLabel, request) {
   setLoading(true)
   setError('')
+  setResults(null)
   setLabel(newLabel)
   try {
     setResults(await request())

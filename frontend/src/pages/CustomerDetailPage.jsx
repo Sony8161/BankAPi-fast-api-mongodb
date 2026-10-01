@@ -40,7 +40,6 @@ export default function CustomerDetailPage() {
   return (
     <section>
       <Link to="/customers">← Back to customers</Link>
-      <h2>Customer {id}</h2>
       {loading && <Spinner message="Loading customer..." />}
       {error && <ErrorMessage message={error} onRetry={load} />}
       {!loading && !error && customer && (

@@ -8,10 +8,13 @@ router = APIRouter(prefix="/api/customers", tags=["Customers"])
 
 
 
-# TODO (search/filter): two GET routes HERE, above "/{customer_id}" (same reason as
-# /premium in account_controller: routes match top to bottom).
-#   GET "/search"   query param name: str          -> list[Customer]   service.search_customers(name)
-#   GET "/premium"  query param threshold: float   -> list[Customer]   service.premium_customers(threshold)
+@router.get("/search", response_model=list[Customer])
+def search_customers(name: str):
+    return service.search_customers(name)
+
+@router.get("/premium", response_model=list[Customer])
+def premium_customers(threshold: float):
+    return service.premium_customers(threshold)
 
 @router.get("/{customer_id}", response_model=Customer)
 def get_customer(customer_id: int):

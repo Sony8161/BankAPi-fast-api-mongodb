@@ -48,9 +48,10 @@ class CustomerRepository:
         #   filter: {"name": {"$regex": "^" + re.escape(name), "$options": "i"}}
         #   ^ = "starts with" (so "jo" finds "John Doe"), re.escape = treat the text literally,
         #   "i" = ignore case. SQL: WHERE name LIKE 'jo%'
-        raise NotImplementedError
+        docs = self._col.find({"name": {"$regex": "^" + re.escape(name), "$options": "i"}})
+        return [from_doc(Customer, d) for d in docs]
 
     def find_by_ids(self, ids: list[int]) -> list[Customer]:
         # TODO: every customer whose _id is in the list: {"_id": {"$in": ids}}
         #   SQL: WHERE id IN (1, 3, 7)
-        raise NotImplementedError
+        return [from_doc(Customer, d) for d in self._col.find({"_id": {"$in": ids}})]

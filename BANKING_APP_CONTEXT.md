@@ -3,6 +3,7 @@
 ## How to work with me
 - I'm learning. Build **slowly, one step at a time**. Explain the concept, give me a starter file with TODOs, I write the code, you review it.
 - Don't build the whole thing for me. Keep explanations brief.
+- When pointing out a fix, always say exactly where: file path + line number(s), then what to change.
 - I'm on **Windows / PowerShell**. Run the server from the `backend` folder: `cd backend` then `python -m uvicorn main:app --reload` (plain `uvicorn` isn't on my PATH).
 - Project folder: `C:\Users\jeffl\Documents\citibank`
   - `backend/` — FastAPI app (main, models, controller, service, repository)
@@ -111,7 +112,7 @@ Frontend (Vite + React 19 + react-router + Axios) in `frontend/`. Run: `cd front
   accounts, Promise.all), backend search/premium TODOs, pages/SearchPage.jsx.
 - Trainer's list still open: tracker links, Postman JSON + Q&A answers in Google Drive. Optional later: JWT (admin/customer roles, bcrypt).
 Study guide doc (with a Line by line tab): https://claude.ai/code/artifact/ed7df4c3-3c60-46d7-884a-0104760973ad
-GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git
+GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-mongodb.git (renamed from BankAPi-fast-api-nodb). main = backend; feature/react-frontend = React.
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
