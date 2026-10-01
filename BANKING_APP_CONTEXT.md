@@ -94,19 +94,24 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
    - Priority 2: Accounts CRUD in Mongo, 1 customer has many accounts, `getPremiumAccounts(threshold)` (balance >= threshold), deposit/withdraw/transfer. Optional: filtering/search on GET /api/accounts
    - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
-6. ⏳ **NEXT:** React frontend (needs CORS in main.py)
+6. ⏳ **CURRENT:** React frontend (branch `feature/react-frontend`)
 7. Bonus: JWT, pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
 
-## Current state (step 5 done)
-All 3 priorities work: Customers CRUD, Accounts CRUD + premium + deposit/withdraw/transfer, Audit trail.
-Verified by Claude: 30/30 checks on Duong's code, and the Postman collection (36 requests, 65 assertions) passes.
-- `backend/Duong_Lam_Banking-app.postman_collection.json` — real Postman v2.1 collection with test scripts (Run collection). Goes in the trainer's Google Drive folder.
-- `README.md` — run steps, endpoints, structure (UTF-8).
-- Optional cleanup: dead code after `return` (customer_repository.update, account_service.get_transactions), unused `rules = []` in transfer,
-  dummy cheat-sheet functions at the bottom of account_repository.py, redundant `self._repo.find_by_id` in update_account.
-- Still to do by Duong: push to GitHub, add repo link to the GitExcelTracker, upload the Postman collection to Google Drive.
-Routes: /api/customers (CRUD + /{id}/accounts), /api/accounts (CRUD, /premium?threshold=, /{id}/deposit, /{id}/withdraw, /{id}/transactions), POST /api/transfers, /api/audit/transactions (+ /{id}).
-GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git (name says "nodb").
+## Current state (step 6: React frontend)
+Backend: done and on MongoDB (main = 60efed3). CORS added in main.py for http://localhost:5173.
+Backend TODOs for the search page: customer_repository.find_by_name ($regex, starts-with, ignore case) and find_by_ids ($in);
+customer_service.search_customers and premium_customers; customer_controller GET /search and /premium ABOVE /{customer_id}.
+
+Frontend (Vite + React 19 + react-router + Axios) in `frontend/`. Run: `cd frontend`, `npm install` once, `npm run dev` -> http://localhost:5173
+- Done (by Claude, browser-tested): main.jsx, App.jsx (routes), services/api.js (Axios + errorMessage), services/customerService.js,
+  services/accountService.js, Header (title prop), Footer, FeatureCard, Spinner, ErrorMessage (onRetry), EmptyState,
+  CustomerTable -> CustomerRow (props down, onDelete up), AccountTable, WelcomePage, CustomersPage (THE EXAMPLE: get all, delete,
+  loading / error / empty states).
+- TODO (Duong), in order: components/CustomerForm.jsx (child->parent onCreate), pages/CustomerDetailPage.jsx (get by id +
+  accounts, Promise.all), backend search/premium TODOs, pages/SearchPage.jsx.
+- Trainer's list still open: tracker links, Postman JSON + Q&A answers in Google Drive. Optional later: JWT (admin/customer roles, bcrypt).
+Study guide doc (with a Line by line tab): https://claude.ai/code/artifact/ed7df4c3-3c60-46d7-884a-0104760973ad
+GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
@@ -117,6 +122,7 @@ GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-nodb.git (name says 
 - Declare fixed routes like `/premium` before `/{account_id}`
 - `@staticmethod` methods take no `self`; a method name must match between service and repository
 - Save files before testing: the server only sees what's on disk
+- React: data down as props, events up as function props; one page owns the state, children just draw
 
 ## OOP concepts to connect along the way
 Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`Customer(CustomerIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.

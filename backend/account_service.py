@@ -33,7 +33,6 @@ class AccountService:
         return self._repo.create(data)
 
     def update_account(self, account_id: int, data: AccountUpdate) -> Account:
-        self._repo.find_by_id(account_id)
         self.get_account(account_id)
         return self._repo.update(account_id, data)
 
@@ -70,7 +69,6 @@ class AccountService:
         return self._repo.find_premium(Decimal(str(threshold)))
 
     def transfer(self, data: TransferIn) -> Transaction:
-        rules = []
         from_account = self.get_account(data.from_account_id)
         to_account = self.get_account(data.to_account_id)
         if from_account.id == to_account.id:
@@ -90,4 +88,3 @@ class AccountService:
     def get_transactions(self, account_id: int) -> list[Transaction]:
         self.get_account(account_id)  # will raise 404 if not found
         return self._audit.list_for_account(account_id)
-        raise NotImplementedError

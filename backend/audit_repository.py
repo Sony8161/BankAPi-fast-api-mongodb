@@ -29,24 +29,20 @@ class AuditRepository:
         self._col.insert_one(doc)
         return self._doc_to_transaction(doc)
         
-        # raise NotImplementedError
 
     def find_all(self) -> list[Transaction]:
         Transactions = self._col
         docs = Transactions.find().sort("_id", -1)
         return [self._doc_to_transaction(doc) for doc in docs]  
         
-        #raise NotImplementedError
 
     def find_by_id(self, txn_id: int) -> Transaction | None:
         Transactions = self._col
         doc = Transactions.find_one({"_id": txn_id})
         return self._doc_to_transaction(doc)
-        # raise NotImplementedError
 
     def find_by_account_id(self, account_id: int) -> list[Transaction]:
         Transactions = self._col
         docs = Transactions.find({"$or": [{"from_account_id": account_id}, {"to_account_id": account_id}]}).sort("_id", -1)
         return [self._doc_to_transaction(doc) for doc in docs]
         
-        # raise NotImplementedError
