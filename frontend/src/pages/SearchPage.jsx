@@ -13,27 +13,37 @@ export default function SearchPage() {
   const [name, setName] = useState('')
   const [threshold, setThreshold] = useState('1000')
 
-  // TODO 1: state: results (null = "nothing searched yet"), loading (false), error (''),
-  //         and label ('') to say what was searched, e.g. Name starts with "jo"
+  const [results, setResults] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [label, setLabel] = useState('')
 
-  // TODO 2: one helper that both forms use:
-  // async function run(newLabel, request) {
-  //   loading on, error cleared, setLabel(newLabel)
-  //   try { setResults(await request()) }
-  //   catch (err) { setError(errorMessage(err)) }
-  //   finally { loading off }
-  // }
+
+async function run(newLabel, request) {
+  setLoading(true)
+  setError('')
+  setLabel(newLabel)
+  try {
+    setResults(await request())
+  } catch (err) {
+    setError(errorMessage(err))
+  } finally {
+    setLoading(false)
+  }
+} 
+
+
 
   function handleNameSearch(event) {
     event.preventDefault()
-    // TODO 3: if name.trim() is empty, stop (return). Otherwise:
-    //   run(`Name starts with "${name.trim()}"`, () => searchCustomersByName(name.trim()))
+    if (name.trim() === '') return
+    run(`Name starts with "${name.trim()}"`, () => searchCustomersByName(name.trim()))
   }
 
   function handlePremium(event) {
     event.preventDefault()
-    // TODO 4: run(`Customers with an account of $${threshold} or more`,
-    //             () => getPremiumCustomers(Number(threshold)))
+    run(`Customers with an account of $${threshold} or more`,
+        () => getPremiumCustomers(Number(threshold)))
   }
 
   return (
@@ -55,14 +65,22 @@ export default function SearchPage() {
         </form>
       </div>
 
-      {/* TODO 5: draw exactly one of:
-            loading                -> <Spinner message="Searching..." />
-            error                  -> <ErrorMessage message={error} />
-            results === null       -> nothing yet (no search has run)
-            results.length === 0   -> <EmptyState message="No customers match." />
-            else                   -> <h3>{label}</h3> and <CustomerTable customers={results} />
-                                      (no onDelete prop = the rows have no delete button)  */}
-      <p className="todo">TODO: show the results here.</p>
+      {
+        loading && <Spinner message="Searching..." />
+      }
+      {
+        error && <ErrorMessage message={error} />
+      }
+      {
+        results === null ? null : results.length === 0 ? (
+          <EmptyState message="No customers match." />
+        ) : (
+          <>
+            <h3>{label}</h3>
+            <CustomerTable customers={results} />
+          </>
+        )
+      }
     </section>
   )
 }
