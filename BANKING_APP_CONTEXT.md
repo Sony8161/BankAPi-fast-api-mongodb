@@ -95,7 +95,7 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
    - Priority 2: Accounts CRUD in Mongo, 1 customer has many accounts, `getPremiumAccounts(threshold)` (balance >= threshold), deposit/withdraw/transfer. Optional: filtering/search on GET /api/accounts
    - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
-6. ⏳ **CURRENT:** React frontend (branch `feature/react-frontend`)
+6. ⏳ **CURRENT:** React frontend (branch `react-frontend`). 38/38 browser test cases pass: frontend/test-results/frontend_test_results.json
 7. Bonus: JWT, pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
 
 ## Current state (step 6: React frontend)
@@ -112,7 +112,7 @@ Frontend (Vite + React 19 + react-router + Axios) in `frontend/`. Run: `cd front
   accounts, Promise.all), backend search/premium TODOs, pages/SearchPage.jsx.
 - Trainer's list still open: tracker links, Postman JSON + Q&A answers in Google Drive. Optional later: JWT (admin/customer roles, bcrypt).
 Study guide doc (with a Line by line tab): https://claude.ai/code/artifact/ed7df4c3-3c60-46d7-884a-0104760973ad
-GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-mongodb.git (renamed from BankAPi-fast-api-nodb). main = backend; feature/react-frontend = React.
+GitHub remote: https://github.com/Sony8161/BankAPi-fast-api-mongodb.git (renamed from BankAPi-fast-api-nodb). Branches: api-base (in-memory API, c7e0962 + AmountIn fix) → mongodb-integration (60efed3) → react-frontend (full app). main = full app.
 
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
