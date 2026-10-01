@@ -64,3 +64,4 @@ class Account(CamelModel):
 class AmountIn(CamelModel):
     """Body for deposit/withdraw: {"amount": 500}"""
     # TODO: amount (type Money)
+    amount: Money
