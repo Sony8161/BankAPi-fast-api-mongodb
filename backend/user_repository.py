@@ -17,6 +17,36 @@ class UserRepository:
     def ensure_indexes(self) -> None:
         # unique index = the DATABASE refuses a second "john", even if two sign-ups race
         self._col.create_index("username", unique=True)
+        self._col.create_index("customer_id")
+
+    def record_failed_login(self, user_id: int, max_attempts: int, lock_until) -> UserInDB:
+        """One more wrong password. On the max_attempts-th one in a row, lock the login."""
+        user = self.find_by_id(user_id)
+        failed = user.failed_logins + 1
+        if failed >= max_attempts:
+            update = {"failed_logins": 0, "locked_until": lock_until}
+        else:
+            update = {"failed_logins": failed}
+        self._col.update_one({"_id": user_id}, {"$set": update})
+        return self.find_by_id(user_id)
+
+    def reset_failed_logins(self, user_id: int) -> None:
+        self._col.update_one({"_id": user_id}, {"$set": {"failed_logins": 0, "locked_until": None}})
+
+    def set_password(self, user_id: int, password_hash: str) -> UserInDB:
+        """New password: clears any lockout AND bumps token_version, so old sessions stop working."""
+        self._col.update_one({"_id": user_id}, {"$set": {"password_hash": password_hash, "failed_logins": 0,
+                                                          "locked_until": None},
+                                                 "$inc": {"token_version": 1}})
+        return self.find_by_id(user_id)
+
+    def bump_token_version(self, user_id: int) -> UserInDB:
+        # every JWT carries the version it was made with; a higher number here retires them all
+        self._col.update_one({"_id": user_id}, {"$inc": {"token_version": 1}})
+        return self.find_by_id(user_id)
+
+    def find_by_customer_ids(self, customer_ids: list[int]) -> list[UserInDB]:
+        return [from_doc(UserInDB, d) for d in self._col.find({"customer_id": {"$in": customer_ids}})]
 
     def find_by_id(self, user_id: int) -> UserInDB | None:
         return from_doc(UserInDB, self._col.find_one({"_id": user_id}))

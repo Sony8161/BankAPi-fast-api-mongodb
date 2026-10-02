@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom'
 import Logo from './Logo.jsx'
+import ThemeToggle from '../theme/ThemeToggle.jsx'
 import { homeFor, useAuth } from '../auth/AuthContext.jsx'
 
 // Header for the PUBLIC pages (home, sign in, open an account).
@@ -10,6 +11,7 @@ export default function Header({ title }) {
     <header className="header">
       <Logo />
       <nav className="nav" aria-label={title}>
+        <ThemeToggle compact />
         <NavLink to="/" end>Home</NavLink>
         {user ? (
           <Link className="btn btn-primary" to={homeFor(user)}>Go to dashboard</Link>

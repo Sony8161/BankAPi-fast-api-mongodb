@@ -40,3 +40,34 @@ export function initials(text) {
     .slice(0, 2)
     .toUpperCase()
 }
+
+// "Today", "Yesterday", or "Mon, Sep 28" for grouping activity by day
+export function dayLabel(iso) {
+  const day = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (day.toDateString() === today.toDateString()) return 'Today'
+  if (day.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return day.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+// "Today, 3:01 PM" / "Sep 28, 11:04 AM"
+export function whenText(iso) {
+  const label = dayLabel(iso)
+  const date = label === 'Today' || label === 'Yesterday'
+    ? label
+    : new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${date}, ${shortTime(iso)}`
+}
+
+export function isThisMonth(iso) {
+  const day = new Date(iso)
+  const now = new Date()
+  return day.getMonth() === now.getMonth() && day.getFullYear() === now.getFullYear()
+}
+
+// money() that respects the "hide balances" eye button
+export function maybeMoney(amount, hidden) {
+  return hidden ? '••••••' : money(amount)
+}

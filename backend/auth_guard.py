@@ -37,6 +37,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(
     user = auth_service.get_user(int(payload["sub"]))
     if user is None:
         raise _unauthorized("This login no longer exists")
+    # "Sign out everywhere" / a password change bumps the login's token_version: older tokens fail here.
+    if not auth_service.token_is_current(user.id, payload.get("ver", 0)):
+        raise _unauthorized("You were signed out. Please sign in again.")
     return user
 
 

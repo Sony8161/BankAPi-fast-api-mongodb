@@ -1,5 +1,17 @@
 from decimal import Decimal
 from fastapi import HTTPException
+
+MAX_AMOUNT = Decimal("1000000")   # one deposit, withdrawal or transfer can't be more than this
+
+
+def check_amount(amount: Decimal) -> None:
+    """The money rules every deposit, withdrawal and transfer share."""
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    if amount.as_tuple().exponent < -2:   # 10.555 has 3 decimal places
+        raise HTTPException(status_code=400, detail="Amounts can have at most 2 decimal places")
+    if amount > MAX_AMOUNT:
+        raise HTTPException(status_code=400, detail="Amount is over the $1,000,000 limit")
 from models import Account, AccountIn, AccountUpdate, Transaction, TransferIn, TxnType
 from account_repository import AccountRepository
 from customer_service import CustomerService
@@ -41,25 +53,25 @@ class AccountService:
         return self._repo.delete(account_id)
 
     # ---------- Step 4: money ----------
-    def deposit(self, account_id: int, amount: Decimal) -> Account:
+    def deposit(self, account_id: int, amount: Decimal, actor: str | None = None) -> Account:
         account = self.get_account(account_id)
-        if amount <= 0:
-            raise HTTPException(status_code=400, detail="Amount must be positive")
+        check_amount(amount)
         new_balance = account.balance + amount
         result = self._repo.update_balance(account_id, new_balance)
-        self._audit.record(TxnType.DEPOSIT, amount, account.customer_id, to_account_id=account_id)
+        self._audit.record(TxnType.DEPOSIT, amount, account.customer_id, to_account_id=account_id,
+                           performed_by=actor)
         return result
         
 
-    def withdraw(self, account_id: int, amount: Decimal) -> Account:
+    def withdraw(self, account_id: int, amount: Decimal, actor: str | None = None) -> Account:
         account = self.get_account(account_id)
-        if amount <= 0:
-            raise HTTPException(status_code=400, detail="Amount must be positive")
+        check_amount(amount)
         if amount > account.balance:
             raise HTTPException(status_code=400, detail="Insufficient funds")
         new_balance = account.balance - amount
         result = self._repo.update_balance(account_id, new_balance)
-        self._audit.record(TxnType.WITHDRAW, amount, account.customer_id, from_account_id=account_id)
+        self._audit.record(TxnType.WITHDRAW, amount, account.customer_id, from_account_id=account_id,
+                           performed_by=actor)
         return result
 
     # ---------- Priority 2 ----------
@@ -68,20 +80,20 @@ class AccountService:
             raise HTTPException(status_code=400, detail="Threshold must be non-negative")
         return self._repo.find_premium(Decimal(str(threshold)))
 
-    def transfer(self, data: TransferIn) -> Transaction:
+    def transfer(self, data: TransferIn, actor: str | None = None) -> Transaction:
         from_account = self.get_account(data.from_account_id)
         to_account = self.get_account(data.to_account_id)
         if from_account.id == to_account.id:
             raise HTTPException(status_code=400, detail="Cannot transfer to the same account") 
-        if data.amount <= 0:
-            raise HTTPException(status_code=400, detail="Amount must be positive")
+        check_amount(data.amount)
         if data.amount > from_account.balance:
             raise HTTPException(status_code=400, detail="Insufficient funds")   
         new_from_balance = from_account.balance - data.amount
         new_to_balance = to_account.balance + data.amount
         self._repo.update_balance(from_account.id, new_from_balance)
         self._repo.update_balance(to_account.id, new_to_balance)
-        return self._audit.record(TxnType.TRANSFER, data.amount, from_account.customer_id, from_account_id=from_account.id, to_account_id=to_account.id)
+        return self._audit.record(TxnType.TRANSFER, data.amount, from_account.customer_id, from_account_id=from_account.id, to_account_id=to_account.id,
+                                  performed_by=actor)
        
 
     # ---------- Priority 3 ----------

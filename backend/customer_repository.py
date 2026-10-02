@@ -51,6 +51,22 @@ class CustomerRepository:
         docs = self._col.find({"name": {"$regex": "^" + re.escape(name), "$options": "i"}})
         return [from_doc(Customer, d) for d in docs]
 
+    def count(self, query: dict | None = None) -> int:
+        return self._col.count_documents(query or {})
+
+    def find_page(self, query: dict, limit: int, skip: int) -> list[Customer]:
+        docs = self._col.find(query).sort("_id", 1).skip(skip).limit(limit)
+        return [from_doc(Customer, d) for d in docs]
+
+    @staticmethod
+    def search_query(text: str) -> dict:
+        """Name STARTS WITH the text, or email CONTAINS it, ignoring case."""
+        if not text.strip():
+            return {}
+        safe = re.escape(text.strip())
+        return {"$or": [{"name": {"$regex": "^" + safe, "$options": "i"}},
+                        {"email": {"$regex": safe, "$options": "i"}}]}
+
     def find_by_email(self, email: str) -> Customer | None:
         # exact match, ignoring case: ^...$ = the whole string
         return from_doc(Customer, self._col.find_one({"email": {"$regex": "^" + re.escape(email) + "$", "$options": "i"}}))

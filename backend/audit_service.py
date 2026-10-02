@@ -14,7 +14,8 @@ class AuditService:
         self._repo = repo
 
     def record(self, txn_type: TxnType, amount: Decimal, customer_id: int,
-               from_account_id: int | None = None, to_account_id: int | None = None) -> Transaction:
+               from_account_id: int | None = None, to_account_id: int | None = None,
+               performed_by: str | None = None) -> Transaction:
         
         
         txn_in = TransactionIn(
@@ -23,7 +24,8 @@ class AuditService:
             customer_id=customer_id,
             from_account_id=from_account_id,
             to_account_id=to_account_id,
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(timezone.utc),
+            performed_by=performed_by,   # which login did it (customer online, or a teller)
         )
         return self._repo.create(txn_in)
 
@@ -31,6 +33,19 @@ class AuditService:
 
     def list_transactions(self) -> list[Transaction]:
         return self._repo.find_all()
+
+    def page(self, limit: int, skip: int, txn_type: TxnType | None = None,
+             customer_id: int | None = None) -> tuple[list[Transaction], int]:
+        """One page of the audit log, filtered in the DATABASE (not in the browser), plus the total."""
+        query = {}
+        if txn_type is not None:
+            query["type"] = txn_type.value
+        if customer_id is not None:
+            query["customer_id"] = customer_id
+        return self._repo.find_page(query, limit, skip), self._repo.count(query)
+
+    def count_since(self, since: datetime) -> int:
+        return self._repo.count({"timestamp": {"$gte": since}})
 
     def get_transaction(self, txn_id: int) -> Transaction:
         txn = self._repo.find_by_id(txn_id)

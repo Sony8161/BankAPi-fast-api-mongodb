@@ -59,6 +59,29 @@ class AccountRepository:
         )
         return _doc_to_account(doc) if doc else None
 
+    def stats(self, premium_threshold: Decimal) -> dict:
+        """Totals for the admin dashboard, added up INSIDE MongoDB with an aggregation pipeline.
+        SQL: SELECT COUNT(*), SUM(balance) ... GROUP BY nothing"""
+        rows = list(self._col.aggregate([{"$group": {"_id": None, "accounts": {"$sum": 1},
+                                                     "total": {"$sum": "$balance"}}}]))
+        totals = rows[0] if rows else {"accounts": 0, "total": Decimal("0")}
+        return {
+            "accounts": totals["accounts"],
+            "total_balance": totals["total"],
+            "savings_accounts": self._col.count_documents({"account_type": "SAVINGS"}),
+            "premium_accounts": self._col.count_documents({"balance": {"$gte": premium_threshold}}),
+        }
+
+    def find_by_customer_ids(self, customer_ids: list[int]) -> list[Account]:
+        return [_doc_to_account(d) for d in self._col.find({"customer_id": {"$in": customer_ids}})]
+
+    def customer_ids_with_balance_at_least(self, threshold: Decimal) -> list[int]:
+        return sorted({a.customer_id for a in self.find_premium(threshold)})
+
+    def ensure_indexes(self) -> None:
+        # without an index, "all accounts of customer 1" reads EVERY account; with one it jumps straight there
+        self._col.create_index("customer_id")
+
     def delete(self, account_id: int) -> None:
         self._col.delete_one({"_id": account_id})
 

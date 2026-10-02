@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { homeFor, useAuth } from '../auth/AuthContext.jsx'
 import { errorMessage } from '../services/api.js'
+import ButtonSpinner from '../components/ButtonSpinner.jsx'
+import PasswordInput from '../components/PasswordInput.jsx'
+import PasswordStrength from '../components/PasswordStrength.jsx'
+import { passwordError } from '../utils/password.js'
 
 const EMPTY = { name: '', email: '', username: '', password: '', confirm: '' }
 
@@ -26,8 +30,13 @@ export default function RegisterPage() {
       setError('Please fill in every field.')
       return
     }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters.')
+    // same rules as the backend (RegisterIn in models.py)
+    if (passwordError(form.password)) {
+      setError(`Password: ${passwordError(form.password)}`)
+      return
+    }
+    if (!/^[A-Za-z0-9_.-]{3,30}$/.test(form.username)) {
+      setError('Username: 3 to 30 letters, numbers, dots, dashes or underscores.')
       return
     }
     if (form.password !== form.confirm) {
@@ -53,7 +62,7 @@ export default function RegisterPage() {
           <h2>Open an account</h2>
           <p>It takes about a minute. Once you're in, open a checking or savings account from your overview.</p>
         </div>
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <h2>Your details</h2>
           {error && <div className="alert alert-error" role="alert">{error}</div>}
           <label className="field"><span>Full name</span>
@@ -65,15 +74,12 @@ export default function RegisterPage() {
           <label className="field"><span>Username</span>
             <input name="username" value={form.username} onChange={handleChange} autoComplete="username" />
           </label>
-          <div className="field-row">
-            <label className="field"><span>Password</span>
-              <input name="password" type="password" value={form.password} onChange={handleChange} autoComplete="new-password" />
-            </label>
-            <label className="field"><span>Confirm password</span>
-              <input name="confirm" type="password" value={form.confirm} onChange={handleChange} autoComplete="new-password" />
-            </label>
-          </div>
+          <PasswordInput name="password" value={form.password} onChange={handleChange} autoComplete="new-password">
+            <PasswordStrength password={form.password} />
+          </PasswordInput>
+          <PasswordInput label="Confirm password" name="confirm" value={form.confirm} onChange={handleChange} autoComplete="new-password" />
           <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>
+            {submitting && <ButtonSpinner />}
             {submitting ? 'Creating your account...' : 'Create account'}
           </button>
           <p className="auth-switch">Already a customer? <Link to="/login">Sign in</Link></p>

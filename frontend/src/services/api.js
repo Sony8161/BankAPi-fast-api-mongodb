@@ -8,23 +8,39 @@ const api = axios.create({
   timeout: 10000, // give up after 10 seconds instead of spinning forever
 })
 
+// How many requests are in flight right now. TopLoader shows a bar while this is above 0.
+let pending = 0
+function changePending(step) {
+  pending = Math.max(0, pending + step)
+  window.dispatchEvent(new CustomEvent('api:loading', { detail: pending }))
+}
+
 // REQUEST INTERCEPTOR: runs before EVERY request. Adds the login token if we have one,
 // so no service function has to remember to do it.
 api.interceptors.request.use((config) => {
   const token = getToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  changePending(+1)
   return config
 })
 
+// The signed-OUT auth routes. A 401 from these means "wrong password", not "your session ended".
+const PUBLIC_AUTH = ['/auth/login', '/auth/register', '/auth/forgot-username', '/auth/forgot-password', '/auth/reset-password']
+
 // RESPONSE INTERCEPTOR: runs on every failed response. A 401 means the token is missing,
-// expired or fake, so tell AuthContext to log out (it listens for this event).
-// Login/register are skipped: a 401 there just means "wrong password".
+// expired, fake, or was cancelled by "sign out everywhere", so tell AuthContext to log out
+// (it listens for this event) and pass along the server's reason for the login page.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    changePending(-1)
+    return response
+  },
   (error) => {
+    changePending(-1)
     const url = error.config?.url ?? ''
-    if (error.response?.status === 401 && !url.startsWith('/auth/')) {
-      window.dispatchEvent(new Event('auth:expired'))
+    if (error.response?.status === 401 && !PUBLIC_AUTH.includes(url)) {
+      const reason = error.response.data?.detail
+      window.dispatchEvent(new CustomEvent('auth:expired', { detail: typeof reason === 'string' ? reason : '' }))
     }
     return Promise.reject(error) // the page's catch block still runs
   },

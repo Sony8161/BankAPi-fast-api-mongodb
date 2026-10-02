@@ -7,7 +7,7 @@
 - I'm on **Windows / PowerShell**. Run the server from the `backend` folder: `cd backend` then `python -m uvicorn main:app --reload` (plain `uvicorn` isn't on my PATH).
 - Project folder: `C:\Users\jeffl\Documents\citibank`
   - `backend/` — FastAPI app (main, models, controller, service, repository)
-  - `frontend/` — React app (empty until step 8)
+  - `frontend/` — React app (Vite)
   - `.venv/` stays at the project root and is shared
 
 ## End goal (from the assignment doc)
@@ -96,8 +96,11 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
    - Priority 3: AuditController -> AuditService -> AuditRepository -> `transactions` collection. Trace one transaction: who (customer_id), when (timestamp), accounts (from/to), amount, type
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
 6. ✅ React frontend (branch `react-frontend`). 38/38 browser test cases pass: frontend/test-results/frontend_test_results.json (old UI, before login)
-7. ⏳ **CURRENT:** Bank-style UI + login system: JWT, bcrypt, roles ADMIN / CUSTOMER (suggested branch `auth-jwt`)
-8. Bonus: pagination, AWS, atomic transfers (Mongo transactions), audit failed attempts
+7. ✅ Bank-style UI + login system: JWT, bcrypt, roles ADMIN / CUSTOMER (branch `auth-jwt`, e9f5fde)
+8. ⏳ **CURRENT:** One-page redesign (soft rose, light/dark) + full login system: forgot username/password, reset link,
+   change password, sign out everywhere, lockout, staff unlock / temporary password (suggested branch `one-page-redesign`)
+9. Scale-up ideas: atomic transfers (Mongo transactions), idempotency keys, refresh tokens, Redis rate limits,
+   hash-chained audit log, structured logging + /health, Docker + CI, load tests, real email service, AWS
 
 ## Current state (step 6: React frontend)
 Backend: done and on MongoDB (main = 60efed3). CORS added in main.py for http://localhost:5173.
@@ -129,6 +132,26 @@ Built by Claude (API-tested 39/39, Postman 51 requests / 89 assertions, browser 
 - TODO (Duong), in order: backend/auth_service.py login (line 17), backend/auth_guard.py get_current_user (line 26),
   frontend/src/pages/LoginPage.jsx handleSubmit (line 24).
 
+## Current state (step 8: one-page redesign + full login system) — 2026-10-01
+Built by Claude on top of e9f5fde (tested: API 37 + 30 + 39 checks, Postman 73 requests / 133 assertions, browser 104/104
+light / dark / phone). Mockup: Design canvas "Simple Bank: One-Page Mockup" (also `Simple Bank One-Page Mockup.pdf`).
+- Backend: password rule (letter + number), lockout (5 wrong -> 15 min, 429), forgot-username / forgot-password (generic
+  answers, rate limited 5 per 15 min per IP), reset links (secrets.token_urlsafe, only SHA-256 stored, 15 min, single use,
+  newer cancels older; `password_resets` collection), change password + sign out everywhere (`token_version` -> JWT `ver`
+  claim checked in auth_guard), /api/auth/me/events, staff unlock + temporary password, `security_events` log,
+  /api/admin/stats and /api/admin/customers (server paging + X-Total-Count, no N+1), audit paging/filters, amount rules
+  (> 0, 2 decimals, <= $1,000,000), performed_by on every transaction, gzip + security headers, indexes.
+  mailer.py prints emails in the uvicorn terminal (no real email yet).
+- Frontend: /app = CustomerHome (balance card with hide-balances eye, Move money with Review step + CONFIRM over $1,000,
+  accounts with sparklines + copy number + open account, activity with search/chips/day groups/receipt drawer/statement CSV,
+  insights, security card: sign-ins, session timer, change password, sign out everywhere). /admin = AdminHome (KPI tiles,
+  customers with debounced server search + premium + paging + Add customer using Duong's CustomerForm, customer drawer:
+  online banking on/unlock/temporary password, accounts, teller, recent activity, edit, delete; live feed with 30 s refresh;
+  sign-in log with problems-only). AppShell top bar, Ctrl+K palette ("deposit 50"), toasts, rose tokens + dark mode.
+  Auth pages: login (show password, Caps Lock warning, remember username, forgot links), register (strength meter),
+  forgot username, forgot password, reset password. Old multi-page screens removed (old URLs redirect to /app or /admin).
+- Duong's own code kept as written: auth_service.login, auth_guard.get_current_user, LoginPage.handleSubmit, CustomerForm.
+
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
 - Use Pydantic v2's `model_copy(update=...)`, not `.copy()`
@@ -139,6 +162,10 @@ Built by Claude (API-tested 39/39, Postman 51 requests / 89 assertions, browser 
 - `@staticmethod` methods take no `self`; a method name must match between service and repository
 - Save files before testing: the server only sees what's on disk
 - React: data down as props, events up as function props; one page owns the state, children just draw
+- Never say whether an account exists on a signed-out form (forgot username/password): same message either way
+- Store only a HASH of reset tokens; tokens expire and work once
+- A JWT can't be "deleted": bump a version number in the user record and check it on every request instead
+- Debounce search boxes (wait 250 ms) so typing "jane" is one request, not four
 
 ## OOP concepts to connect along the way
 Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`Customer(CustomerIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.

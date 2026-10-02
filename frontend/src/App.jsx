@@ -1,26 +1,27 @@
-import { Routes, Route } from 'react-router-dom'
+import { lazy } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './auth/ProtectedRoute.jsx'
 import PublicLayout from './layouts/PublicLayout.jsx'
-import AppLayout from './layouts/AppLayout.jsx'
+import AppShell from './shell/AppShell.jsx'
 import WelcomePage from './pages/WelcomePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
+import ForgotUsernamePage from './pages/ForgotUsernamePage.jsx'
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
-import DashboardPage from './pages/customer/DashboardPage.jsx'
-import AccountPage from './pages/customer/AccountPage.jsx'
-import TransferPage from './pages/customer/TransferPage.jsx'
-import ActivityPage from './pages/customer/ActivityPage.jsx'
-import AdminDashboardPage from './pages/admin/AdminDashboardPage.jsx'
-import AuditPage from './pages/admin/AuditPage.jsx'
-import CustomersPage from './pages/CustomersPage.jsx'
-import CustomerDetailPage from './pages/CustomerDetailPage.jsx'
-import SearchPage from './pages/SearchPage.jsx'
+
+// OPTIMIZED: lazy() = "download this page's code only when someone opens it".
+// A customer never downloads the staff page, and the first page loads faster.
+// While the code downloads, <Suspense> in AppShell shows a spinner.
+const CustomerHome = lazy(() => import('./pages/customer/CustomerHome.jsx'))
+const AdminHome = lazy(() => import('./pages/admin/AdminHome.jsx'))
 
 // App is the top PARENT component. Three groups of pages:
-//   public   (/, /login, /register)  -> PublicLayout: Header + page + Footer
-//   customer (/app/...)              -> must be signed in as CUSTOMER, sidebar layout
-//   admin    (/admin/...)            -> must be signed in as ADMIN, sidebar layout
-// A layout route draws the frame; its child routes fill the <Outlet /> inside it.
+//   public    /, /login, /register, /forgot-username, /forgot-password, /reset-password
+//   customer  /app    ONE page with everything (must be signed in as CUSTOMER)
+//   staff     /admin  ONE page with everything (must be signed in as ADMIN)
+// Old links like /app/transfer or /admin/customers/3 land on the one page instead of a 404.
 export default function App() {
   return (
     <Routes>
@@ -28,22 +29,20 @@ export default function App() {
         <Route path="/" element={<WelcomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-username" element={<ForgotUsernamePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
 
-      <Route path="/app" element={<ProtectedRoute role="CUSTOMER"><AppLayout /></ProtectedRoute>}>
-        <Route index element={<DashboardPage />} />
-        <Route path="accounts/:id" element={<AccountPage />} />
-        <Route path="transfer" element={<TransferPage />} />
-        <Route path="activity" element={<ActivityPage />} />
+      <Route path="/app" element={<ProtectedRoute role="CUSTOMER"><AppShell /></ProtectedRoute>}>
+        <Route index element={<CustomerHome />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Route>
 
-      <Route path="/admin" element={<ProtectedRoute role="ADMIN"><AppLayout /></ProtectedRoute>}>
-        <Route index element={<AdminDashboardPage />} />
-        <Route path="customers" element={<CustomersPage />} />
-        <Route path="customers/:id" element={<CustomerDetailPage />} />
-        <Route path="search" element={<SearchPage />} />
-        <Route path="audit" element={<AuditPage />} />
+      <Route path="/admin" element={<ProtectedRoute role="ADMIN"><AppShell /></ProtectedRoute>}>
+        <Route index element={<AdminHome />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>
   )

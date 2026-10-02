@@ -49,12 +49,12 @@ def delete_account(account_id: int):
 @router.post("/{account_id}/deposit", response_model=Account)
 def deposit(account_id: int, data: AmountIn, user: User = Depends(get_current_user)):
     own_account(account_id, user)
-    return service.deposit(account_id, data.amount)
+    return service.deposit(account_id, data.amount, actor=user.username)   # actor = who did it, for the audit log
 
 @router.post("/{account_id}/withdraw", response_model=Account)
 def withdraw(account_id: int, data: AmountIn, user: User = Depends(get_current_user)):
     own_account(account_id, user)
-    return service.withdraw(account_id, data.amount)
+    return service.withdraw(account_id, data.amount, actor=user.username)
 
 @router.get("/{account_id}/transactions", response_model=list[Transaction])
 def get_transactions(account_id: int, user: User = Depends(get_current_user)):
@@ -65,4 +65,4 @@ def get_transactions(account_id: int, user: User = Depends(get_current_user)):
 @transfer_router.post("", response_model=Transaction, status_code=201)
 def transfer(data: TransferIn, user: User = Depends(get_current_user)):
     own_account(data.from_account_id, user)   # you can only send FROM your own account
-    return service.transfer(data)       
+    return service.transfer(data, actor=user.username)

@@ -1,8 +1,12 @@
 # Simple Bank (FastAPI + MongoDB Atlas + React)
 
 A small online bank: customers, accounts, deposits, withdrawals, transfers and an audit trail of every money movement,
-with a login system (JWT) and two roles: **admin** (bank staff) and **customer**.
+with a full login system (JWT) and two roles: **admin** (bank staff) and **customer**.
 Built with Python, FastAPI, Pydantic, MongoDB Atlas and React, using a layered (MVC-style) design.
+
+Each role gets **one page with everything on it**: customers see balance, move money, accounts, activity, insights and
+security at `/app`; staff get a command center with numbers, customers, a live transaction feed and the sign-in log at `/admin`.
+Soft rose theme with light and dark mode, `Ctrl+K` search on both pages.
 
 ```
 React page -> Axios service (adds "Authorization: Bearer <token>")
@@ -33,7 +37,9 @@ npm run dev        # http://localhost:5173
 ```
 MONGODB_URI="mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority"
 JWT_SECRET="<long random string>"     # python -c "import secrets; print(secrets.token_hex(32))"
-# optional: ADMIN_USERNAME, ADMIN_PASSWORD (default admin / admin123), JWT_MINUTES (default 60)
+# optional: ADMIN_USERNAME, ADMIN_PASSWORD (default admin / admin123), JWT_MINUTES (60),
+#           MAX_FAILED_LOGINS (5), LOCK_MINUTES (15), RESET_MINUTES (15),
+#           FRONTEND_URL (http://localhost:5173, used in reset links), ALLOWED_ORIGINS (CORS)
 ```
 
 Swagger UI: http://127.0.0.1:8000/docs (log in with `POST /api/auth/login`, copy `accessToken`, click **Authorize**).
@@ -42,21 +48,46 @@ Swagger UI: http://127.0.0.1:8000/docs (log in with `POST /api/auth/login`, copy
 
 | Login | Role | What they can do |
 |---|---|---|
-| `admin` / `admin123` | ADMIN | Everything: all customers, accounts, search, audit log, turn on online banking for a customer |
-| `john` / `john123`, `jane` / `jane123` (from `seed_demo.py`) | CUSTOMER | Only their own customer record, accounts and transactions; open accounts, deposit, withdraw, transfer |
+| `admin` / `admin123` | ADMIN | Everything: customers, accounts, teller deposits/withdrawals/transfers, audit log, sign-in log, unlock logins, temporary passwords |
+| `john` / `john123`, `jane` / `jane123` (from `seed_demo.py`) | CUSTOMER | Only their own record, accounts and transactions; open accounts, deposit, withdraw, transfer, change password |
 
-- The admin login is created when the server starts if it doesn't exist yet.
-- Anyone can sign up at **Open an account** (`POST /api/auth/register`): it creates a new customer and their login.
-- Passwords are stored as bcrypt hashes. Tokens are HS256-signed JWTs that expire after `JWT_MINUTES`.
-- `401` = not logged in / bad or expired token. `403` = logged in, but not allowed (e.g. a customer opening someone else's account).
+`seed_demo.py` also adds **Ann Lee**, a customer with no login yet, so staff can try "Turn on online banking".
+
+### The login system
+
+| Feature | How it works |
+|---|---|
+| Sign in / sign up | bcrypt password hashes; HS256-signed JWT that expires after `JWT_MINUTES` |
+| Password rules | 6 to 72 characters, at least one letter and one number (checked in the browser AND the API) |
+| Lockout | 5 wrong passwords in a row lock the login for 15 minutes (`429`) |
+| Forgot username | emails the username to the address on file |
+| Forgot password | emails a one-time link `/reset-password?token=...`, valid 15 minutes. Only a SHA-256 hash of the token is stored; asking again cancels older links |
+| Same answer for everyone | forgot-username / forgot-password say the same thing whether or not the account exists, so they can't be used to find customers |
+| Rate limit | 5 forgot requests and 10 reset attempts per 15 minutes per IP |
+| Change password | needs the current password; signs out every other device |
+| Sign out everywhere | every older token stops working (`token_version` in the JWT); this browser gets a fresh one |
+| Staff tools | unlock a login, give a temporary password (shown once), turn on online banking for a customer |
+| Sign-in log | every login, wrong password, lockout, reset and staff action goes to `security_events` |
+
+**Demo email:** nothing is really sent. `backend/mailer.py` prints each email (with the reset link) in the uvicorn terminal.
+To go live, replace the body of `send_email` with SMTP / SendGrid / Amazon SES.
+
+`401` = not signed in, bad / expired token, or signed out everywhere. `403` = signed in, but not allowed.
 
 ## Endpoints
 
 | Area | Method | Route | Who |
 |---|---|---|---|
 | Auth | POST | `/api/auth/login`, `/api/auth/register` | anyone |
-| | GET | `/api/auth/me` | any login |
-| | GET, POST | `/api/auth/users` (list logins / create a login for a customer) | admin |
+| | POST | `/api/auth/forgot-username` `{"email"}`, `/api/auth/forgot-password` `{"usernameOrEmail"}` | anyone (rate limited) |
+| | POST | `/api/auth/reset-password` `{"token", "newPassword"}` | anyone with a valid link |
+| | GET | `/api/auth/me`, `/api/auth/me/events?limit=20` | any login |
+| | PUT | `/api/auth/me/password` `{"currentPassword", "newPassword"}` (returns a new token) | any login |
+| | POST | `/api/auth/me/sign-out-everywhere` (returns a new token) | any login |
+| | GET, POST | `/api/auth/users` (list logins / turn on a login for a customer) | admin |
+| | POST | `/api/auth/users/{id}/unlock`, `/api/auth/users/{id}/temporary-password` | admin |
+| Admin | GET | `/api/admin/stats` (dashboard numbers, counted by MongoDB) | admin |
+| | GET | `/api/admin/customers?query=&premium=&limit=25&skip=0` (+ `X-Total-Count` header) | admin |
 | Customers | GET, POST | `/api/customers` | admin |
 | | GET | `/api/customers/search?name=jo`, `/api/customers/premium?threshold=1000` | admin |
 | | GET | `/api/customers/{id}`, `/api/customers/{id}/accounts`, `/api/customers/{id}/transactions` | admin or that customer |
@@ -67,36 +98,45 @@ Swagger UI: http://127.0.0.1:8000/docs (log in with `POST /api/auth/login`, copy
 | | PUT, DELETE | `/api/accounts/{id}` (PUT can't change the balance) | admin |
 | | POST | `/api/accounts/{id}/deposit`, `/api/accounts/{id}/withdraw` body `{"amount": 500}` | admin or the owner |
 | Transfers | POST | `/api/transfers` body `{"fromAccountId": 1, "toAccountId": 2, "amount": 50}` | admin or the owner of the FROM account |
-| Audit | GET | `/api/audit/transactions`, `/api/audit/transactions/{id}` | admin |
+| Audit | GET | `/api/audit/transactions?limit=&skip=&type=&customerId=` (+ `X-Total-Count`), `/api/audit/transactions/{id}` | admin |
+| | GET | `/api/audit/security-events?limit=&skip=&problems=true` (+ `X-Total-Count`) | admin |
 
-Business rules: amounts must be positive, no withdrawing or transferring more than the balance,
-no transfer to the same account, and every deposit / withdrawal / transfer is recorded in the audit trail
-(who, when, which accounts, how much). Audit records are never changed or deleted.
+Business rules: amounts must be more than $0, at most 2 decimal places and at most $1,000,000; no withdrawing or
+transferring more than the balance; no transfer to the same account. Every deposit / withdrawal / transfer is recorded
+in the audit trail (who did it, when, which accounts, how much). Audit records are never changed or deleted.
+In the browser, amounts over $1,000 need `CONFIRM` typed in on the review step.
 
 ## Testing
 
-Import `backend/Duong_Lam_Banking-app.postman_collection.json` into Postman and use **Run collection**
-(51 requests, 89 assertions). Folder 0 logs in as admin and saves the token; the collection sends it on every
-request. Folder 5 checks the roles (customers get 403 on other people's data).
+- **Postman:** import `backend/Duong_Lam_Banking-app.postman_collection.json` and **Run collection** (73 requests, 133 assertions).
+  Folder 0 logs in as admin and saves the token. Folder 5 checks the roles. Folder 6 tests the login system (forgot, reset,
+  change password, sign out everywhere, lockout, unlock, temporary password).
+- **Browser:** 104 end-to-end checks (Playwright) on both one-page screens, light / dark / phone, all passing.
 
 ## Structure
 
 ```
 backend/
-  main.py                 app + routers, creates the admin login on startup
-  dependencies.py         creates and wires repositories and services
+  main.py                 app + routers, middleware (CORS, gzip, security headers), indexes, admin login on startup
+  dependencies.py         creates and wires repositories and services (the composition root)
   db.py                   MongoDB connection, Decimal128 codec, auto-increment ids
-  models.py               Pydantic models (requests/responses)
-  security.py             bcrypt password hashing, JWT create/decode
+  models.py               Pydantic models (requests/responses), password rule
+  security.py             bcrypt password hashing, JWT create/decode, lockout + reset settings
   auth_guard.py           get_current_user, require_admin, ensure_owner (used with Depends)
+  mailer.py               "sends" email (prints it in dev)
+  rate_limit.py           per-IP limit for the forgot / reset routes
   *_controller.py         routes
-  *_service.py            business rules
-  *_repository.py         MongoDB queries
+  *_service.py            business rules (auth, accounts, audit, admin, stats)
+  *_repository.py         MongoDB queries (users, customers, accounts, transactions, security events, password resets)
   seed_demo.py            demo data
 frontend/src/
   auth/                   AuthContext (who is signed in), ProtectedRoute, token storage
-  layouts/                PublicLayout (header) and AppLayout (sidebar)
-  pages/                  public pages, customer/ (online banking), admin/ (staff portal)
-  components/             reusable pieces (tables, cards, forms)
+  shell/                  AppShell (top bar), Ctrl+K CommandPalette, toasts
+  theme/                  light / dark switch
+  pages/customer/         CustomerHome + its cards (balance, accounts, activity, insights, security, receipt)
+  pages/admin/            AdminHome + its cards (KPIs, customers, live feed, sign-in log, customer drawer)
+  pages/                  public pages: welcome, sign in, sign up, forgot username / password, reset password
+  components/             reusable pieces (MoveMoneyForm, Drawer, PasswordInput, PasswordStrength, Sparkline, Pager...)
   services/               Axios calls; api.js adds the token and handles 401
+  utils/                  money, dates, transactions, passwords, CSV
 ```

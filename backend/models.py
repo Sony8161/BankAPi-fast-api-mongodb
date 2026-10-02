@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -90,6 +90,7 @@ class TransactionIn(CamelModel):
     from_account_id: int | None = None
     to_account_id: int | None = None
     timestamp: datetime
+    performed_by: str | None = None   # the LOGIN that did it: "john" (online) or "admin" (a teller)
 
 
 
@@ -98,6 +99,14 @@ class Transaction(TransactionIn):   # same In/Out pattern as Customer(CustomerIn
 
 
 # ---------- Login / users (JWT) ----------
+def strong_password(value: str) -> str:
+    """The one password rule, used by sign-up, change, reset and admin-created logins:
+    6-72 characters with at least one letter AND one number."""
+    if not any(c.isalpha() for c in value) or not any(c.isdigit() for c in value):
+        raise ValueError("Password needs at least one letter and one number")
+    return value
+
+
 class Role(str, Enum):
     ADMIN = "ADMIN"         # bank staff: sees and manages everyone
     CUSTOMER = "CUSTOMER"   # sees only their own customer record, accounts and transactions
@@ -111,17 +120,67 @@ class LoginIn(CamelModel):
 
 class RegisterIn(CamelModel):
     """POST /api/auth/register body: a NEW customer and their login, in one step."""
-    name: str = Field(min_length=1)
-    email: str = Field(min_length=3)
-    username: str = Field(min_length=3, max_length=30)
+    name: str = Field(min_length=1, max_length=100)
+    email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    username: str = Field(min_length=3, max_length=30, pattern=r"^[A-Za-z0-9_.-]+$")
     password: str = Field(min_length=6, max_length=72)
+
+    @field_validator("password")
+    @classmethod
+    def password_rule(cls, value: str) -> str:
+        return strong_password(value)   # letter + number, shared by every password form
 
 
 class CreateLoginIn(CamelModel):
     """POST /api/auth/users body (admin only): turn on online banking for an existing customer."""
     customer_id: int
-    username: str = Field(min_length=3, max_length=30)
+    username: str = Field(min_length=3, max_length=30, pattern=r"^[A-Za-z0-9_.-]+$")
     password: str = Field(min_length=6, max_length=72)
+    @field_validator("password")
+    @classmethod
+    def password_rule(cls, value: str) -> str:
+        return strong_password(value)   # letter + number, shared by every password form
+
+
+class ForgotUsernameIn(CamelModel):
+    """POST /api/auth/forgot-username body: {"email": "john@example.com"}"""
+    email: str = Field(min_length=3, max_length=254)
+
+
+class ForgotPasswordIn(CamelModel):
+    """POST /api/auth/forgot-password body: {"usernameOrEmail": "john"}"""
+    username_or_email: str = Field(min_length=3, max_length=254)
+
+
+class ResetPasswordIn(CamelModel):
+    """POST /api/auth/reset-password body: the token from the emailed link + the new password."""
+    token: str = Field(min_length=20, max_length=200)
+    new_password: str = Field(min_length=6, max_length=72)
+    @field_validator("new_password")
+    @classmethod
+    def password_rule(cls, value: str) -> str:
+        return strong_password(value)   # letter + number, shared by every password form
+
+
+class ChangePasswordIn(CamelModel):
+    """PUT /api/auth/me/password body (signed in): {"currentPassword": "...", "newPassword": "..."}"""
+    current_password: str = Field(max_length=72)
+    new_password: str = Field(min_length=6, max_length=72)
+    @field_validator("new_password")
+    @classmethod
+    def password_rule(cls, value: str) -> str:
+        return strong_password(value)   # letter + number, shared by every password form
+
+
+class MessageOut(CamelModel):
+    """A plain answer, e.g. "If that email is on file, we've sent your username to it.\""""
+    message: str
+
+
+class TempPasswordOut(CamelModel):
+    """Admin reset: the temporary password is shown ONCE, to the admin, and never stored in plain text."""
+    username: str
+    temporary_password: str
 
 
 class User(CamelModel):
@@ -135,6 +194,15 @@ class User(CamelModel):
 class UserInDB(User):
     """A login as stored in MongoDB. Only the repository and AuthService see this."""
     password_hash: str
+    failed_logins: int = 0                # wrong passwords in a row
+    locked_until: datetime | None = None  # set after too many wrong passwords
+    token_version: int = 0                # +1 = every token issued before stops working ("sign out everywhere")
+
+
+class LoginInfo(User):
+    """What staff see about a login: the public fields + whether it is locked right now."""
+    locked: bool = False
+    failed_logins: int = 0
 
 
 class TokenOut(CamelModel):
@@ -142,4 +210,58 @@ class TokenOut(CamelModel):
     access_token: str
     token_type: str = "bearer"
     user: User
+
+
+# ---------- Security log (sign-ins) ----------
+class SecurityEventType(str, Enum):
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    LOGIN_FAILED = "LOGIN_FAILED"
+    LOCKED_OUT = "LOCKED_OUT"            # too many wrong passwords: login refused for a while
+    LOGIN_BLOCKED = "LOGIN_BLOCKED"      # tried again while locked
+    REGISTERED = "REGISTERED"
+    LOGIN_CREATED = "LOGIN_CREATED"      # an admin turned on online banking for a customer
+    USERNAME_REMINDER = "USERNAME_REMINDER"            # "forgot username" email sent
+    PASSWORD_RESET_REQUESTED = "PASSWORD_RESET_REQUESTED"
+    PASSWORD_RESET = "PASSWORD_RESET"                  # new password set from an emailed link
+    PASSWORD_CHANGED = "PASSWORD_CHANGED"              # changed while signed in
+    SIGNED_OUT_EVERYWHERE = "SIGNED_OUT_EVERYWHERE"
+    UNLOCKED = "UNLOCKED"                              # staff ended a lockout early
+    TEMP_PASSWORD_SET = "TEMP_PASSWORD_SET"            # staff gave a temporary password
+
+
+class SecurityEventIn(CamelModel):
+    """One sign-in event. Like the transactions audit trail, these are only ever added."""
+    type: SecurityEventType
+    username: str
+    ip: str | None = None
+    detail: str | None = None
+    timestamp: datetime
+
+
+class SecurityEvent(SecurityEventIn):
+    id: int
+
+
+# ---------- Admin dashboard numbers ----------
+class AdminStats(CamelModel):
+    """GET /api/admin/stats: totals counted BY THE DATABASE, so the browser downloads 8 numbers, not every record."""
+    customers: int
+    accounts: int
+    savings_accounts: int
+    total_balance: Money
+    premium_accounts: int
+    premium_threshold: Money
+    transactions: int
+    transactions_today: int
+
+
+class AdminCustomer(CamelModel):
+    """One row of the staff customer list: totals worked out on the server, one page at a time."""
+    id: int
+    name: str
+    email: str
+    account_count: int
+    total_balance: Money
+    premium: bool
+    login: LoginInfo | None = None
 

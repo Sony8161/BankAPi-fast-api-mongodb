@@ -36,6 +36,21 @@ class AuditRepository:
         return [self._doc_to_transaction(doc) for doc in docs]  
         
 
+    def ensure_indexes(self) -> None:
+        # the queries the app runs most: by account (history), by customer (filter), newest first
+        self._col.create_index("from_account_id")
+        self._col.create_index("to_account_id")
+        self._col.create_index("customer_id")
+        self._col.create_index("timestamp")
+
+    def find_page(self, query: dict, limit: int, skip: int) -> list[Transaction]:
+        # sort + skip + limit run inside MongoDB: only one page ever leaves the database
+        docs = self._col.find(query).sort("_id", -1).skip(skip).limit(limit)
+        return [self._doc_to_transaction(doc) for doc in docs]
+
+    def count(self, query: dict | None = None) -> int:
+        return self._col.count_documents(query or {})
+
     def find_by_id(self, txn_id: int) -> Transaction | None:
         Transactions = self._col
         doc = Transactions.find_one({"_id": txn_id})
