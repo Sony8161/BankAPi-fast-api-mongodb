@@ -9,7 +9,7 @@ from auth_controller import router as auth_router
 from customer_controller import router as customer_router
 from account_controller import router as account_router, transfer_router
 from audit_controller import router as audit_router
-from dependencies import account_repo, audit_repo, auth_service, reset_repo, security_repo
+from dependencies import account_repo, audit_repo, auth_service, note_repo, reset_repo, security_repo
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ async def lifespan(app: FastAPI):
     audit_repo.ensure_indexes()
     security_repo.ensure_indexes()
     reset_repo.ensure_indexes()
+    note_repo.ensure_indexes()
     auth_service.ensure_admin(os.getenv("ADMIN_USERNAME", "admin"), os.getenv("ADMIN_PASSWORD", "admin123"))
     yield   # the app runs here; code after yield would run on shutdown
 

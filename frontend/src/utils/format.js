@@ -71,3 +71,20 @@ export function isThisMonth(iso) {
 export function maybeMoney(amount, hidden) {
   return hidden ? '••••••' : money(amount)
 }
+
+// What to call an account: the owner's nickname if they set one, otherwise "Savings" / "Checking".
+export function accountLabel(account) {
+  return account?.nickname || accountName(account?.accountType)
+}
+
+// "2026-09" -> "September 2026"
+export function monthLabel(key) {
+  const [year, month] = key.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+// The local "YYYY-MM" a timestamp falls in
+export function monthKey(iso) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}

@@ -112,7 +112,7 @@ export default function AdminHome() {
 
   useShellInfo({
     displayName: 'Admin',
-    alert: { count: problems, label: `Alerts: ${problems} sign-in problems`, onClick: showProblems },
+    alert: { count: problems, label: problems ? `Alerts: ${problems} sign-in problems` : 'Sign-in log', onClick: showProblems },
   })
 
   if (error) return <div className="page"><div className="alert alert-error" role="alert">{error}</div></div>

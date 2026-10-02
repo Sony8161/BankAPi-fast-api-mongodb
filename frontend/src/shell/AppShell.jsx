@@ -9,6 +9,7 @@ import { getTheme, toggleTheme } from '../theme/theme.js'
 import { initials } from '../utils/format.js'
 import CommandPalette from './CommandPalette.jsx'
 import { ShellContext } from './ShellContext.jsx'
+import SessionWarning from './SessionWarning.jsx'
 
 // The frame around the signed-in ONE-PAGE screens (/app for customers, /admin for staff):
 // a top bar with the logo, the Ctrl+K search, alerts, light/dark, and who is signed in.
@@ -63,10 +64,10 @@ export default function AppShell() {
             <kbd>Ctrl K</kbd>
           </button>
           <div className="topbar-right">
-            {alert && alert.count > 0 && (
+            {alert && (
               <button type="button" className="icon-btn square bell" onClick={alert.onClick} aria-label={alert.label} title={alert.label}>
                 <Icon name="bell" size={20} />
-                <span className="bell-count">{alert.count}</span>
+                {alert.count > 0 && <span className="bell-count">{alert.count > 99 ? '99+' : alert.count}</span>}
               </button>
             )}
             <ThemeToggle compact />
@@ -89,6 +90,8 @@ export default function AppShell() {
             <Outlet />
           </Suspense>
         </main>
+
+        <SessionWarning />
 
         {paletteOpen && (
           <CommandPalette getItems={getItems} builtIns={builtIns} onClose={() => setPaletteOpen(false)}

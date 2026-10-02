@@ -155,6 +155,11 @@ class AuthService:
         self._log(SecurityEventType.PASSWORD_CHANGED, user.username, ip, "other sessions signed out")
         return self._token_for(updated)   # a fresh token keeps THIS browser signed in
 
+    def refresh(self, user: User) -> TokenOut:
+        """A new token with a new expiry time. The guard already checked the old token (signature, expiry,
+        token_version), so this only extends a session that is still alive; "sign out everywhere" still wins."""
+        return self._token_for(self._users.find_by_id(user.id))
+
     def sign_out_everywhere(self, user: User, ip: str | None = None) -> TokenOut:
         updated = self._users.bump_token_version(user.id)
         self._log(SecurityEventType.SIGNED_OUT_EVERYWHERE, user.username, ip)

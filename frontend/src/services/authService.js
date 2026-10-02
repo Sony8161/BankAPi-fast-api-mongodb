@@ -81,3 +81,9 @@ export async function setTemporaryPassword(userId) {
   const res = await api.post(`/auth/users/${userId}/temporary-password`)
   return res.data // { username, temporaryPassword }
 }
+
+// "Stay signed in": a fresh token while the current one still works.
+export async function refreshSession() {
+  const res = await api.post('/auth/refresh')
+  return res.data // a new session, same shape as login
+}

@@ -1,6 +1,6 @@
 {
-  "passed": 104,
-  "total": 104,
+  "passed": 131,
+  "total": 131,
   "errors": [],
   "results": [
     {
@@ -34,7 +34,7 @@
       "info": ""
     },
     {
-      "name": "home: bell shows 1 failed sign-in",
+      "name": "home: bell shows new alerts",
       "ok": true,
       "info": ""
     },
@@ -109,12 +109,72 @@
       "info": ""
     },
     {
-      "name": "transfer toast",
+      "name": "transfer toast names the payee",
       "ok": true,
       "info": ""
     },
     {
       "name": "activity shows transfer at top",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "activity row shows payee name",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "recent recipient chip",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "name check: unknown number",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "name check: shows account holder",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "new-payee warning shows",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "quick amount $50",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "balance after shown",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "quick amount All = balance",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "must tick 'I know this person'",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "review marks new recipient",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "new payee transfer sent",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "paid before: no warning second time",
       "ok": true,
       "info": ""
     },
@@ -139,12 +199,22 @@
       "info": ""
     },
     {
-      "name": "palette: statement CSV downloaded",
+      "name": "statement drawer: opening/closing + lines",
       "ok": true,
       "info": ""
     },
     {
-      "name": "statement has header + rows",
+      "name": "statement CSV downloaded",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "statement CSV has running balance",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "printable statement opens",
       "ok": true,
       "info": ""
     },
@@ -165,6 +235,21 @@
     },
     {
       "name": "chip filter deposits",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "date range: last month empty",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "date range: this month has rows",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "send again fills the form",
       "ok": true,
       "info": ""
     },
@@ -195,6 +280,36 @@
     },
     {
       "name": "3 account cards",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "nickname saved",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "goal progress on card",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "nickname used in Move money",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "customer bell has new alerts",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "alerts list staff deposit",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "bell cleared after opening",
       "ok": true,
       "info": ""
     },
@@ -334,6 +449,11 @@
       "info": ""
     },
     {
+      "name": "jane's alerts: money received + password reset",
+      "ok": true,
+      "info": ""
+    },
+    {
       "name": "reset link works only once",
       "ok": true,
       "info": ""
@@ -410,6 +530,21 @@
     },
     {
       "name": "Ann signs in with her temporary password",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "teller name check",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "teller: no new-payee warning",
+      "ok": true,
+      "info": ""
+    },
+    {
+      "name": "staff note added",
       "ok": true,
       "info": ""
     },

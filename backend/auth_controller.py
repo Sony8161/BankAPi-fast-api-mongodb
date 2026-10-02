@@ -47,6 +47,12 @@ def me(user: User = Depends(get_current_user)):
     return user   # get_current_user already did the work
 
 
+@router.post("/refresh", response_model=TokenOut)
+def refresh(user: User = Depends(get_current_user)):
+    """The "Stay signed in" button: a fresh token for someone whose token is still valid."""
+    return service.refresh(user)
+
+
 @router.put("/me/password", response_model=TokenOut)
 def change_password(data: ChangePasswordIn, request: Request, user: User = Depends(get_current_user)):
     return service.change_password(user, data, ip_of(request))

@@ -97,8 +97,10 @@ JWT login, transfers, pagination for transactions, UI validation messages, AWS d
    - Then: test with Postman, push to GitHub, put the repo link on the GitExcelTracker, put Postman scripts in the Google Drive folder
 6. ✅ React frontend (branch `react-frontend`). 38/38 browser test cases pass: frontend/test-results/frontend_test_results.json (old UI, before login)
 7. ✅ Bank-style UI + login system: JWT, bcrypt, roles ADMIN / CUSTOMER (branch `auth-jwt`, e9f5fde)
-8. ⏳ **CURRENT:** One-page redesign (soft rose, light/dark) + full login system: forgot username/password, reset link,
-   change password, sign out everywhere, lockout, staff unlock / temporary password (suggested branch `one-page-redesign`)
+8. ✅ One-page redesign (soft rose, light/dark) + full login system: forgot username/password, reset link,
+   change password, sign out everywhere, lockout, staff unlock / temporary password (branch `one-page-redesign`, 5a6d4f2)
+8b. ⏳ **CURRENT:** Convenience features: payee name check, Zelle-style new-payee warning, recent recipients + Send again,
+   quick amounts, nicknames + savings goals, alerts bell, date ranges + monthly statements, session warning, staff notes
 9. Scale-up ideas: atomic transfers (Mongo transactions), idempotency keys, refresh tokens, Redis rate limits,
    hash-chained audit log, structured logging + /health, Docker + CI, load tests, real email service, AWS
 
@@ -152,6 +154,19 @@ light / dark / phone). Mockup: Design canvas "Simple Bank: One-Page Mockup" (als
   forgot username, forgot password, reset password. Old multi-page screens removed (old URLs redirect to /app or /admin).
 - Duong's own code kept as written: auth_service.login, auth_guard.get_current_user, LoginPage.handleSubmit, CustomerForm.
 
+## Current state (step 8b: convenience features) — 2026-10-02
+Built by Claude on top of 5a6d4f2 (tested: API 28 new + 37 + 30 + 39 checks, Postman 83 requests / 151 assertions,
+browser 131/131 + 8/8 session warning). Email stays as the "we've sent it" confirmation (no real sending, by choice).
+- Backend: GET /api/accounts/{id}/payee ("Jane S.", 30/min per IP), PATCH /api/accounts/{id}/settings (nickname, goal;
+  never the balance), POST /api/auth/refresh ("Stay signed in"), GET/POST /api/admin/customers/{id}/notes
+  (`customer_notes` collection, note_repository.py). Account model gains nickname + goal.
+- Frontend: MoveMoneyForm (recent recipient chips, name check while typing, "Do you know Ann L.?" + "I know this person"
+  tick for first-time payees, quick $20/$50/$100/All, balance after), ReceiptDrawer "Send again", AccountsSection
+  (nickname + goal progress), AlertsDrawer (bell: money in, large payments, staff actions, sign-in events, "New" since last
+  look), ActivityCard date range, StatementDrawer (monthly opening/closing, CSV, print/Save as PDF), SessionWarning
+  (2 min before expiry), CustomerDrawer staff notes. Keyboard-shortcut sheet skipped by choice.
+- Demo: script doc https://claude.ai/code/artifact/61a4aeae-1704-4892-a0c6-f0a6bb336da6 and demo/Simple Bank Demo.mp4.
+
 ## Lessons so far
 - Python is case-sensitive (`APIRouter`, not `APIrouter`)
 - Use Pydantic v2's `model_copy(update=...)`, not `.copy()`
@@ -166,6 +181,8 @@ light / dark / phone). Mockup: Design canvas "Simple Bank: One-Page Mockup" (als
 - Store only a HASH of reset tokens; tokens expire and work once
 - A JWT can't be "deleted": bump a version number in the user record and check it on every request instead
 - Debounce search boxes (wait 250 ms) so typing "jane" is one request, not four
+- Show who owns an account BEFORE money moves (name check), and ask for a yes on a first payment to someone new
+- Rate-limit lookups that reveal names, so nobody can walk through every account number
 
 ## OOP concepts to connect along the way
 Classes/objects, constructors (incl. multiple), methods/params/return types, overloading, inheritance (`Customer(CustomerIn)`, later SavingsAccount), overriding, access modifiers (Java: public/private/protected/default; Python uses `_` convention), static, final.

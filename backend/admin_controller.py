@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Response
 
 from auth_guard import require_admin
 from dependencies import admin_service, stats_service as service
-from models import AdminCustomer, AdminStats
+from models import AdminCustomer, AdminStats, Note, NoteIn, User
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
@@ -19,3 +19,14 @@ def admin_customers(response: Response, query: str = "", premium: bool = False,
     rows, total = admin_service.customer_page(query, premium, limit, skip)
     response.headers["X-Total-Count"] = str(total)
     return rows
+
+
+@router.get("/customers/{customer_id}/notes", response_model=list[Note])
+def customer_notes(customer_id: int):
+    """Staff notes about one customer, newest first."""
+    return admin_service.notes(customer_id)
+
+
+@router.post("/customers/{customer_id}/notes", response_model=Note, status_code=201)
+def add_customer_note(customer_id: int, data: NoteIn, admin: User = Depends(require_admin)):
+    return admin_service.add_note(customer_id, data.text, author=admin.username)

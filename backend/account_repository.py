@@ -59,6 +59,15 @@ class AccountRepository:
         )
         return _doc_to_account(doc) if doc else None
 
+    def update_settings(self, account_id: int, nickname: str | None, goal: Decimal | None) -> Account:
+        """Only the owner's labels change; the balance is never in this $set."""
+        doc = self._col.find_one_and_update(
+            {"_id": account_id},
+            {"$set": {"nickname": nickname, "goal": goal}},
+            return_document=ReturnDocument.AFTER
+        )
+        return _doc_to_account(doc) if doc else None
+
     def stats(self, premium_threshold: Decimal) -> dict:
         """Totals for the admin dashboard, added up INSIDE MongoDB with an aggregation pipeline.
         SQL: SELECT COUNT(*), SUM(balance) ... GROUP BY nothing"""

@@ -6,14 +6,14 @@ import LoginBadge from '../../components/LoginBadge.jsx'
 import MoveMoneyForm from '../../components/MoveMoneyForm.jsx'
 import Skeleton from '../../components/Skeleton.jsx'
 import { createAccount } from '../../services/accountService.js'
-import { getAdminCustomers } from '../../services/adminService.js'
+import { addCustomerNote, getAdminCustomers, getCustomerNotes } from '../../services/adminService.js'
 import { errorMessage } from '../../services/api.js'
 import { createLogin, setTemporaryPassword, unlockLogin } from '../../services/authService.js'
 import {
   deleteCustomer, getCustomerAccounts, getCustomerById, getCustomerTransactions, updateCustomer,
 } from '../../services/customerService.js'
 import { useToast } from '../../shell/ToastContext.jsx'
-import { accountName, maskedAccount, money, whenText } from '../../utils/format.js'
+import { accountLabel, accountName, maskedAccount, money, whenText } from '../../utils/format.js'
 import { temporaryPassword } from '../../utils/password.js'
 import { describe } from '../../utils/transactions.js'
 
@@ -82,7 +82,7 @@ export default function CustomerDrawer({ customerId, onClose, onChanged, onShowF
             {accounts.length === 0 && <div className="empty-box">No accounts yet.</div>}
             {accounts.map((a) => (
               <div key={a.id} className="kv-row">
-                <span>{accountName(a.accountType)} <span className="mono muted">{maskedAccount(a.id)}</span></span>
+                <span>{accountLabel(a)} <span className="mono muted">{a.nickname ? `${accountName(a.accountType)} ` : ''}{maskedAccount(a.id)}</span></span>
                 <strong>{money(a.balance)}</strong>
               </div>
             ))}
@@ -113,6 +113,8 @@ export default function CustomerDrawer({ customerId, onClose, onChanged, onShowF
               )
             })}
           </div>
+
+          <StaffNotes customerId={customer.id} />
 
           <EditDetails customer={customer} onSaved={(c) => { setCustomer(c); afterChange('Details saved.') }} />
           <DeleteCustomer customer={customer} accounts={accounts} total={total} onDeleted={() => {
@@ -336,5 +338,64 @@ function DeleteCustomer({ customer, accounts, total, onDeleted }) {
         </>
       )}
     </div>
+  )
+}
+
+// Notes staff leave for each other ("Called 10/1 about the lockout"). Newest first, never edited.
+function StaffNotes({ customerId }) {
+  const [notes, setNotes] = useState([])
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    getCustomerNotes(customerId).then((list) => alive && setNotes(list)).catch((err) => alive && setError(errorMessage(err)))
+    return () => {
+      alive = false
+    }
+  }, [customerId])
+
+  async function add(event) {
+    event.preventDefault()
+    if (!text.trim()) return setError('Write something first.')
+    setBusy(true)
+    try {
+      const note = await addCustomerNote(customerId, text.trim())
+      setNotes([note, ...notes])
+      setText('')
+      setError('')
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="drawer-section" onSubmit={add} noValidate>
+      <div className="section-row">
+        <h3>Staff notes</h3>
+        <span className="muted small">{notes.length} note{notes.length === 1 ? '' : 's'}</span>
+      </div>
+      <label className="field">
+        <span className="sr-only">New note</span>
+        <textarea rows={2} maxLength={500} value={text} onChange={(e) => setText(e.target.value)}
+          placeholder="e.g. Called about the lockout, verified ID" aria-label="New note" />
+        <small className="muted">{500 - text.length} characters left</small>
+      </label>
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      <button type="submit" className="btn btn-outline btn-sm" disabled={busy}>{busy && <ButtonSpinner />}Add note</button>
+      {notes.length > 0 && (
+        <ul className="notes">
+          {notes.map((n) => (
+            <li key={n.id}>
+              <p className="no-margin">{n.text}</p>
+              <small className="muted">{n.author} · {whenText(n.timestamp)}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </form>
   )
 }

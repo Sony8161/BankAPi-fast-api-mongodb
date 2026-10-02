@@ -8,15 +8,17 @@ import { getMyEvents } from '../../services/authService.js'
 import { getCustomerAccounts, getCustomerById, getCustomerTransactions } from '../../services/customerService.js'
 import { useCommands, useShellInfo } from '../../shell/ShellContext.jsx'
 import { useToast } from '../../shell/ToastContext.jsx'
-import { downloadCsv, toCsv } from '../../utils/csv.js'
-import { accountName, accountNumber, greeting, isThisMonth, maskedAccount, money } from '../../utils/format.js'
-import { describe, problemsSinceLastVisit, TYPE_LABEL } from '../../utils/transactions.js'
+import { accountLabel, accountName, accountNumber, greeting, isThisMonth, maskedAccount, money } from '../../utils/format.js'
+import { usePayeeNames } from '../../utils/payees.js'
+import { buildAlerts, counterpartIds, describe, pastRecipients } from '../../utils/transactions.js'
 import AccountsSection from './AccountsSection.jsx'
 import ActivityCard from './ActivityCard.jsx'
+import AlertsDrawer from './AlertsDrawer.jsx'
 import BalanceCard from './BalanceCard.jsx'
 import InsightsCard from './InsightsCard.jsx'
 import ReceiptDrawer from './ReceiptDrawer.jsx'
 import SecurityCard from './SecurityCard.jsx'
+import StatementDrawer from './StatementDrawer.jsx'
 
 const HIDE_KEY = 'sb_hide_balances'
 
@@ -25,6 +27,15 @@ function readHidden() {
     return localStorage.getItem(HIDE_KEY) === '1'
   } catch {
     return false
+  }
+}
+
+// When this device last opened the alerts (so the bell counts only NEW ones). First visit: the last 7 days count.
+function readSeen(username) {
+  try {
+    return Number(localStorage.getItem(`sb_alerts_seen_${username}`)) || Date.now() - 7 * 86400000
+  } catch {
+    return Date.now() - 7 * 86400000
   }
 }
 
@@ -51,6 +62,10 @@ export default function CustomerHome() {
   const [receipt, setReceipt] = useState(null) // the transaction shown in the drawer
   const [search, setSearch] = useState('')
   const [securityPanel, setSecurityPanel] = useState(null) // 'password' | 'signout' | null
+  const [statementsOpen, setStatementsOpen] = useState(false)
+  const [alertsOpen, setAlertsOpen] = useState(false)
+  const [seenAt, setSeenAt] = useState(() => readSeen(user.username))
+  const [seenWhenOpened, setSeenWhenOpened] = useState(seenAt) // keeps the "New" tags while the drawer is open
 
   // Money changed: reload balances + activity (2 requests, in parallel).
   const reloadMoney = useCallback(async () => {
@@ -107,7 +122,26 @@ export default function CustomerHome() {
     }
     return result
   }, [txns, ownIds])
-  const problems = problemsSinceLastVisit(events)
+
+  // People on the other side of transfers: their names ("Jane S."), who you've paid before, your alerts.
+  const names = usePayeeNames(useMemo(() => counterpartIds(txns, ownIds), [txns, ownIds]))
+  const paid = useMemo(() => pastRecipients(txns, ownIds), [txns, ownIds])
+  const knownIds = useMemo(() => new Set(paid.map((r) => r.accountId)), [paid])
+  const recipients = paid.slice(0, 4).map((r) => ({ ...r, name: names[r.accountId] }))
+  const alerts = useMemo(() => buildAlerts(txns, events, ownIds, user.username, names), [txns, events, ownIds, user.username, names])
+  const unread = alerts.filter((a) => new Date(a.at).getTime() > seenAt).length
+
+  function openAlerts() {
+    setSeenWhenOpened(seenAt)
+    setAlertsOpen(true)
+    const now = Date.now()
+    setSeenAt(now)
+    try {
+      localStorage.setItem(`sb_alerts_seen_${user.username}`, String(now))
+    } catch {
+      // ignore
+    }
+  }
 
   function toggleHidden() {
     const next = !hidden
@@ -119,8 +153,8 @@ export default function CustomerHome() {
     }
   }
 
-  function startMove(mode, amount, accountId) {
-    setMoveRequest({ mode, amount, accountId, key: Date.now() }) // a new object = the form starts again
+  function startMove(mode, amount, accountId, toAccountId) {
+    setMoveRequest({ mode, amount, accountId, toAccountId, key: Date.now() }) // a new object = the form starts again
     scrollToId('move-money')
   }
 
@@ -143,26 +177,6 @@ export default function CustomerHome() {
     }
   }
 
-  function downloadStatement() {
-    const rows = txns.map((t) => {
-      const d = describe(t, ownIds)
-      return {
-        id: t.id,
-        date: new Date(t.timestamp).toLocaleString('en-US'),
-        type: TYPE_LABEL[t.type],
-        description: d.text,
-        amount: (d.direction < 0 ? -t.amount : t.amount).toFixed(2),
-        by: t.performedBy ?? '',
-      }
-    })
-    const columns = [
-      { key: 'id', label: 'Reference' }, { key: 'date', label: 'Date' }, { key: 'type', label: 'Type' },
-      { key: 'description', label: 'Description' }, { key: 'amount', label: 'Amount' }, { key: 'by', label: 'Done by' },
-    ]
-    downloadCsv(`statement-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows, columns))
-    toast(`Statement downloaded (${rows.length} transactions).`)
-  }
-
   // What Ctrl+K offers on this page. "deposit 50" becomes a ready-to-review deposit of $50.
   useCommands((query) => {
     const text = query.trim().toLowerCase()
@@ -180,13 +194,16 @@ export default function CustomerHome() {
       { id: 'transfer', label: 'Transfer money', icon: 'swap', keywords: 'send pay move', run: () => startMove('transfer') },
       { id: 'open-checking', label: 'Open a checking account', icon: 'plus', keywords: 'new account', run: () => openAccount('CHECKING') },
       { id: 'open-savings', label: 'Open a savings account', icon: 'plus', keywords: 'new account', run: () => openAccount('SAVINGS') },
-      { id: 'statement', label: 'Download statement (CSV)', icon: 'download', keywords: 'export csv excel', run: downloadStatement },
+      { id: 'statement', label: 'Monthly statements', icon: 'list', keywords: 'statement export csv pdf print excel', run: () => setStatementsOpen(true) },
+      { id: 'alerts', label: 'Show alerts', icon: 'bell', keywords: 'notifications bell', run: openAlerts },
       { id: 'hide', label: hidden ? 'Show balances' : 'Hide balances', icon: hidden ? 'eye' : 'eyeOff', keywords: 'privacy balance', run: toggleHidden },
       { id: 'activity', label: 'Go to activity', icon: 'list', keywords: 'history transactions', run: () => scrollToId('activity') },
       { id: 'password', label: 'Change password', icon: 'key', keywords: 'security', run: () => { setSecurityPanel('password'); scrollToId('security') } },
       { id: 'everywhere', label: 'Sign out on every device', icon: 'shield', keywords: 'security devices sessions', run: () => { setSecurityPanel('signout'); scrollToId('security') } },
-      ...accounts.map((a) => ({ id: `acct-${a.id}`, label: `${accountName(a.accountType)} ${maskedAccount(a.id)}`, hint: hidden ? '' : money(a.balance),
-        icon: 'grid', keywords: `account ${accountNumber(a.id)}`, run: () => scrollToId('accounts') })),
+      ...accounts.map((a) => ({ id: `acct-${a.id}`, label: `${accountLabel(a)} ${maskedAccount(a.id)}`, hint: hidden ? '' : money(a.balance),
+        icon: 'grid', keywords: `account ${accountNumber(a.id)} ${accountName(a.accountType)}`, run: () => scrollToId('accounts') })),
+      ...recipients.filter((r) => r.name).map((r) => ({ id: `pay-${r.accountId}`, label: `Send money to ${r.name}`, hint: maskedAccount(r.accountId),
+        icon: 'swap', keywords: 'pay send transfer', run: () => startMove('transfer', '', undefined, r.accountId) })),
     )
     if (text && !quick) {
       items.push({ id: 'search', alwaysShow: true, fallback: true, icon: 'search', label: `Search activity for “${query.trim()}”`,
@@ -197,7 +214,7 @@ export default function CustomerHome() {
 
   useShellInfo({
     displayName: customer?.name,
-    alert: { count: problems.length, label: `Alerts: ${problems.length} failed sign-in${problems.length === 1 ? '' : 's'}`, onClick: () => scrollToId('security') },
+    alert: { count: unread, label: unread ? `Alerts: ${unread} new` : 'Alerts', onClick: openAlerts },
   })
 
   if (loading) return <HomeSkeleton />
@@ -223,6 +240,7 @@ export default function CustomerHome() {
             <span className="step-pill">{moveStep === 'review' ? 'Step 2 of 2 · Review' : 'Step 1 of 2'}</span>
           </div>
           <MoveMoneyForm accounts={accounts} request={moveRequest} hidden={hidden} onStepChange={setMoveStep}
+            recipients={recipients} knownIds={knownIds}
             onDone={async (sentence) => {
               toast(sentence)
               await reloadMoney()
@@ -231,11 +249,12 @@ export default function CustomerHome() {
       </div>
 
       <AccountsSection accounts={accounts} txns={txns} hidden={hidden} onCopy={copyNumber} onOpen={openAccount}
-        onMove={(a) => startMove('transfer', '', a.id)} />
+        onMove={(a) => startMove('transfer', '', a.id)}
+        onSaved={async (a) => { toast(`Saved ${accountLabel(a)} ${maskedAccount(a.id)}.`); await reloadMoney() }} />
 
       <div className="grid-2 wide-left">
-        <ActivityCard txns={txns} ownIds={ownIds} username={user.username} hidden={hidden} search={search}
-          onSearch={setSearch} onOpen={setReceipt} onStatement={downloadStatement} />
+        <ActivityCard txns={txns} ownIds={ownIds} username={user.username} names={names} hidden={hidden} search={search}
+          onSearch={setSearch} onOpen={setReceipt} onStatements={() => setStatementsOpen(true)} />
         <div className="stack">
           <InsightsCard moneyIn={month.moneyIn} moneyOut={month.moneyOut} counts={month.counts}
             accounts={accounts} total={total} hidden={hidden} />
@@ -243,7 +262,19 @@ export default function CustomerHome() {
         </div>
       </div>
 
-      {receipt && <ReceiptDrawer txn={receipt} ownIds={ownIds} username={user.username} onClose={() => setReceipt(null)} />}
+      {receipt && (
+        <ReceiptDrawer txn={receipt} ownIds={ownIds} username={user.username} names={names} onClose={() => setReceipt(null)}
+          onRepeat={(t) => { setReceipt(null); startMove('transfer', t.amount, t.fromAccountId, t.toAccountId) }} />
+      )}
+      {statementsOpen && (
+        <StatementDrawer customer={customer} accounts={accounts} txns={txns} ownIds={ownIds} names={names}
+          onClose={() => setStatementsOpen(false)} />
+      )}
+      {alertsOpen && (
+        <AlertsDrawer alerts={alerts} seenAt={seenWhenOpened} onClose={() => setAlertsOpen(false)}
+          onOpenTxn={(t) => { setAlertsOpen(false); setReceipt(t) }}
+          onSecurity={() => { setAlertsOpen(false); scrollToId('security') }} />
+      )}
     </div>
   )
 }

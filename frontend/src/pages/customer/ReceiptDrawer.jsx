@@ -3,15 +3,17 @@ import Icon from '../../components/Icon.jsx'
 import { maskedAccount, money, shortDate, shortTime } from '../../utils/format.js'
 import { byStaff, describe, TYPE_LABEL } from '../../utils/transactions.js'
 
-// One transaction's details, in a side drawer, with a "download receipt" button.
-export default function ReceiptDrawer({ txn, ownIds, username, onClose }) {
-  const d = describe(txn, ownIds)
+// One transaction's details, in a side drawer, with "download receipt" and (for transfers you made) "send again".
+export default function ReceiptDrawer({ txn, ownIds, username, names = {}, onClose, onRepeat }) {
+  const d = describe(txn, ownIds, names)
+  const label = (id) => (names[id] && !ownIds.has(id) ? `${names[id]} ${maskedAccount(id)}` : maskedAccount(id))
+  const canRepeat = txn.type === 'TRANSFER' && ownIds.has(txn.fromAccountId)
   const who = byStaff(txn, ownIds, username) ? 'Bank staff (teller)' : txn.performedBy === username ? 'You, online' : txn.performedBy ?? 'Unknown'
   const rows = [
     ['Reference', `#${String(txn.id).padStart(6, '0')}`],
     ['Type', TYPE_LABEL[txn.type]],
-    ...(txn.fromAccountId ? [['From', maskedAccount(txn.fromAccountId)]] : []),
-    ...(txn.toAccountId ? [['To', maskedAccount(txn.toAccountId)]] : []),
+    ...(txn.fromAccountId ? [['From', label(txn.fromAccountId)]] : []),
+    ...(txn.toAccountId ? [['To', label(txn.toAccountId)]] : []),
     ['Date', shortDate(txn.timestamp)],
     ['Time', shortTime(txn.timestamp)],
     ['Done by', who],
@@ -41,7 +43,12 @@ export default function ReceiptDrawer({ txn, ownIds, username, onClose }) {
           <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
         ))}
       </dl>
-      <button type="button" className="btn btn-primary btn-block" onClick={download}><Icon name="download" />Download receipt</button>
+      <div className="two-buttons">
+        <button type="button" className="btn btn-outline" onClick={download}><Icon name="download" />Download receipt</button>
+        {canRepeat && (
+          <button type="button" className="btn btn-primary" onClick={() => onRepeat(txn)}><Icon name="refresh" />Send again</button>
+        )}
+      </div>
     </Drawer>
   )
 }

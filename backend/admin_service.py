@@ -3,7 +3,10 @@ from decimal import Decimal
 from account_repository import AccountRepository
 from auth_service import AuthService
 from customer_repository import CustomerRepository
-from models import AdminCustomer
+from fastapi import HTTPException
+
+from models import AdminCustomer, Note
+from note_repository import NoteRepository
 from user_repository import UserRepository
 
 PREMIUM = Decimal("1000")
@@ -14,8 +17,9 @@ class AdminService:
     accounts and ONE for all their logins ($in), instead of one query per customer (the "N+1" problem)."""
 
     def __init__(self, customer_repo: CustomerRepository, account_repo: AccountRepository,
-                 user_repo: UserRepository, auth_service: AuthService):
+                 user_repo: UserRepository, auth_service: AuthService, note_repo: NoteRepository):
         self._customers = customer_repo
+        self._notes = note_repo
         self._accounts = account_repo
         self._users = user_repo
         self._auth = auth_service
@@ -40,3 +44,16 @@ class AdminService:
                 login=self._auth.login_info(login) if login else None,
             ))
         return rows, self._customers.count(query)
+
+    # ---------- staff notes ----------
+    def notes(self, customer_id: int) -> list[Note]:
+        self._require_customer(customer_id)
+        return self._notes.find_for_customer(customer_id)
+
+    def add_note(self, customer_id: int, text: str, author: str) -> Note:
+        self._require_customer(customer_id)
+        return self._notes.create(customer_id, text, author)
+
+    def _require_customer(self, customer_id: int) -> None:
+        if self._customers.find_by_id(customer_id) is None:
+            raise HTTPException(status_code=404, detail="Customer not found")

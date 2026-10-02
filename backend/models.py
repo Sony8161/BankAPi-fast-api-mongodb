@@ -59,6 +59,35 @@ class Account(CamelModel):
     customer_id: int
     account_type: AccountType
     balance: Money = Decimal("0.00")
+    nickname: str | None = None   # the owner's own label: "Rent", "Vacation fund"
+    goal: Money | None = None     # a savings goal; the page shows progress toward it
+
+
+class AccountSettingsIn(CamelModel):
+    """PATCH /api/accounts/{id}/settings: labels the OWNER picks. Never touches the balance.
+    Send null (or leave out) to clear a nickname or goal."""
+    nickname: str | None = Field(default=None, max_length=30)
+    goal: Money | None = None
+
+    @field_validator("nickname")
+    @classmethod
+    def tidy_nickname(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        return value or None   # "   " counts as no nickname
+
+    @field_validator("goal")
+    @classmethod
+    def goal_rule(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and not (Decimal("0") < value <= Decimal("1000000")):
+            raise ValueError("Goal must be between $0.01 and $1,000,000")
+        return value
+
+
+class PayeeOut(CamelModel):
+    """Confirmation of payee: who an account number belongs to, shown BEFORE money is sent,
+    as "Jane S." (first name + last initial), so a typo doesn't send money to a stranger."""
+    account_id: int
+    name: str
 
 
 class AmountIn(CamelModel):
@@ -265,3 +294,25 @@ class AdminCustomer(CamelModel):
     premium: bool
     login: LoginInfo | None = None
 
+
+
+# ---------- Staff notes on a customer ----------
+class NoteIn(CamelModel):
+    """POST /api/admin/customers/{id}/notes body."""
+    text: str = Field(min_length=1, max_length=500)
+
+    @field_validator("text")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Write something in the note")
+        return value.strip()
+
+
+class Note(CamelModel):
+    """A staff note, e.g. "Called 10/1 about the lockout". Kept like the audit log: never edited."""
+    id: int
+    customer_id: int
+    text: str
+    author: str
+    timestamp: datetime

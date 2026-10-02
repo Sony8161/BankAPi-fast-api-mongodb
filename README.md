@@ -8,6 +8,17 @@ Each role gets **one page with everything on it**: customers see balance, move m
 security at `/app`; staff get a command center with numbers, customers, a live transaction feed and the sign-in log at `/admin`.
 Soft rose theme with light and dark mode, `Ctrl+K` search on both pages.
 
+Convenience features on the customer page:
+- **Name check before money moves:** typing an account number shows who owns it ("Jane S.").
+- **New-payee warning (like Zelle):** the first payment to someone new needs an "I know this person" tick.
+- **One-tap recipients and Send again:** people you've paid before are chips; any receipt can repeat a transfer.
+- **Quick amounts** ($20 / $50 / $100 / All) with a live "balance after".
+- **Nicknames and savings goals** per account, with a progress bar.
+- **Alerts bell:** money received, large payments, bank-staff actions and sign-in events, with "New" since your last look.
+- **Date ranges and monthly statements:** opening and closing balance, running balance, CSV or print / Save as PDF.
+- **"Still there?" warning** 2 minutes before the session ends, with **Stay signed in**.
+- Staff get **notes** on each customer and the same name check in the teller form.
+
 ```
 React page -> Axios service (adds "Authorization: Bearer <token>")
            -> Controller (routes + role checks) -> Service (business rules) -> Repository (MongoDB) -> Atlas
@@ -66,6 +77,7 @@ Swagger UI: http://127.0.0.1:8000/docs (log in with `POST /api/auth/login`, copy
 | Rate limit | 5 forgot requests and 10 reset attempts per 15 minutes per IP |
 | Change password | needs the current password; signs out every other device |
 | Sign out everywhere | every older token stops working (`token_version` in the JWT); this browser gets a fresh one |
+| Stay signed in | 2 minutes before the token expires a warning offers a fresh token (`POST /api/auth/refresh`) |
 | Staff tools | unlock a login, give a temporary password (shown once), turn on online banking for a customer |
 | Sign-in log | every login, wrong password, lockout, reset and staff action goes to `security_events` |
 
@@ -83,11 +95,13 @@ To go live, replace the body of `send_email` with SMTP / SendGrid / Amazon SES.
 | | POST | `/api/auth/reset-password` `{"token", "newPassword"}` | anyone with a valid link |
 | | GET | `/api/auth/me`, `/api/auth/me/events?limit=20` | any login |
 | | PUT | `/api/auth/me/password` `{"currentPassword", "newPassword"}` (returns a new token) | any login |
+| | POST | `/api/auth/refresh` (a fresh token while the current one is still valid) | any login |
 | | POST | `/api/auth/me/sign-out-everywhere` (returns a new token) | any login |
 | | GET, POST | `/api/auth/users` (list logins / turn on a login for a customer) | admin |
 | | POST | `/api/auth/users/{id}/unlock`, `/api/auth/users/{id}/temporary-password` | admin |
 | Admin | GET | `/api/admin/stats` (dashboard numbers, counted by MongoDB) | admin |
 | | GET | `/api/admin/customers?query=&premium=&limit=25&skip=0` (+ `X-Total-Count` header) | admin |
+| | GET, POST | `/api/admin/customers/{id}/notes` `{"text"}` (staff notes, newest first) | admin |
 | Customers | GET, POST | `/api/customers` | admin |
 | | GET | `/api/customers/search?name=jo`, `/api/customers/premium?threshold=1000` | admin |
 | | GET | `/api/customers/{id}`, `/api/customers/{id}/accounts`, `/api/customers/{id}/transactions` | admin or that customer |
@@ -95,6 +109,8 @@ To go live, replace the body of `send_email` with SMTP / SendGrid / Amazon SES.
 | Accounts | POST | `/api/accounts` | admin, or a customer for themselves |
 | | GET | `/api/accounts`, `/api/accounts/premium?threshold=1000` | admin |
 | | GET | `/api/accounts/{id}`, `/api/accounts/{id}/transactions` | admin or the owner |
+| | GET | `/api/accounts/{id}/payee` → `{"accountId", "name": "Jane S."}` (30 a minute per IP) | any login |
+| | PATCH | `/api/accounts/{id}/settings` `{"nickname", "goal"}` (never touches the balance) | admin or the owner |
 | | PUT, DELETE | `/api/accounts/{id}` (PUT can't change the balance) | admin |
 | | POST | `/api/accounts/{id}/deposit`, `/api/accounts/{id}/withdraw` body `{"amount": 500}` | admin or the owner |
 | Transfers | POST | `/api/transfers` body `{"fromAccountId": 1, "toAccountId": 2, "amount": 50}` | admin or the owner of the FROM account |
@@ -108,10 +124,13 @@ In the browser, amounts over $1,000 need `CONFIRM` typed in on the review step.
 
 ## Testing
 
-- **Postman:** import `backend/Duong_Lam_Banking-app.postman_collection.json` and **Run collection** (73 requests, 133 assertions).
+- **Postman:** import `backend/Duong_Lam_Banking-app.postman_collection.json` and **Run collection** (83 requests, 151 assertions).
   Folder 0 logs in as admin and saves the token. Folder 5 checks the roles. Folder 6 tests the login system (forgot, reset,
-  change password, sign out everywhere, lockout, unlock, temporary password).
-- **Browser:** 104 end-to-end checks (Playwright) on both one-page screens, light / dark / phone, all passing.
+  change password, sign out everywhere, lockout, unlock, temporary password). Folder 7 tests the name check, nicknames
+  and goals, staff notes and refresh.
+- **Browser:** 131 end-to-end checks (Playwright) on both one-page screens, light / dark / phone, plus 8 for the session
+  warning, all passing (`frontend/test-results/`).
+- **Demo:** `demo/Simple Bank Demo.mp4` walks through every feature with captions.
 
 ## Structure
 
@@ -127,16 +146,16 @@ backend/
   rate_limit.py           per-IP limit for the forgot / reset routes
   *_controller.py         routes
   *_service.py            business rules (auth, accounts, audit, admin, stats)
-  *_repository.py         MongoDB queries (users, customers, accounts, transactions, security events, password resets)
+  *_repository.py         MongoDB queries (users, customers, accounts, transactions, security events, password resets, staff notes)
   seed_demo.py            demo data
 frontend/src/
   auth/                   AuthContext (who is signed in), ProtectedRoute, token storage
-  shell/                  AppShell (top bar), Ctrl+K CommandPalette, toasts
+  shell/                  AppShell (top bar), Ctrl+K CommandPalette, toasts, the "Still there?" session warning
   theme/                  light / dark switch
-  pages/customer/         CustomerHome + its cards (balance, accounts, activity, insights, security, receipt)
+  pages/customer/         CustomerHome + its cards (balance, accounts, activity, insights, security) and drawers (receipt, statements, alerts)
   pages/admin/            AdminHome + its cards (KPIs, customers, live feed, sign-in log, customer drawer)
   pages/                  public pages: welcome, sign in, sign up, forgot username / password, reset password
   components/             reusable pieces (MoveMoneyForm, Drawer, PasswordInput, PasswordStrength, Sparkline, Pager...)
   services/               Axios calls; api.js adds the token and handles 401
-  utils/                  money, dates, transactions, passwords, CSV
+  utils/                  money, dates, transactions (alerts, statements), payee names, passwords, CSV
 ```

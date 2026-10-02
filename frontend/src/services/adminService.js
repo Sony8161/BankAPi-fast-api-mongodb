@@ -15,3 +15,14 @@ export async function getAdminCustomers({ query = '', premium = false, limit = 2
   const res = await api.get('/admin/customers', { params })
   return { items: res.data, total: Number(res.headers['x-total-count'] ?? res.data.length) }
 }
+
+// Staff notes about one customer ("Called 10/1 about the lockout"), newest first.
+export async function getCustomerNotes(customerId) {
+  const res = await api.get(`/admin/customers/${customerId}/notes`)
+  return res.data
+}
+
+export async function addCustomerNote(customerId, text) {
+  const res = await api.post(`/admin/customers/${customerId}/notes`, { text })
+  return res.data
+}

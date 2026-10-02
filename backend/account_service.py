@@ -4,6 +4,14 @@ from fastapi import HTTPException
 MAX_AMOUNT = Decimal("1000000")   # one deposit, withdrawal or transfer can't be more than this
 
 
+def masked_name(full_name: str) -> str:
+    """'Jane Smith' -> 'Jane S.'   'Cher' -> 'Cher'"""
+    parts = full_name.split()
+    if len(parts) < 2:
+        return full_name.strip()
+    return f"{parts[0]} {parts[-1][0].upper()}."
+
+
 def check_amount(amount: Decimal) -> None:
     """The money rules every deposit, withdrawal and transfer share."""
     if amount <= 0:
@@ -12,7 +20,7 @@ def check_amount(amount: Decimal) -> None:
         raise HTTPException(status_code=400, detail="Amounts can have at most 2 decimal places")
     if amount > MAX_AMOUNT:
         raise HTTPException(status_code=400, detail="Amount is over the $1,000,000 limit")
-from models import Account, AccountIn, AccountUpdate, Transaction, TransferIn, TxnType
+from models import Account, AccountIn, AccountSettingsIn, AccountUpdate, PayeeOut, Transaction, TransferIn, TxnType
 from account_repository import AccountRepository
 from customer_service import CustomerService
 from audit_service import AuditService
@@ -47,6 +55,16 @@ class AccountService:
     def update_account(self, account_id: int, data: AccountUpdate) -> Account:
         self.get_account(account_id)
         return self._repo.update(account_id, data)
+
+    def update_settings(self, account_id: int, data: AccountSettingsIn) -> Account:
+        self.get_account(account_id)   # 404 if it doesn't exist
+        return self._repo.update_settings(account_id, data.nickname, data.goal)
+
+    def payee(self, account_id: int) -> PayeeOut:
+        """Who owns this account number, as "Jane S.": enough to spot a typo, not a full identity."""
+        account = self.get_account(account_id)
+        customer = self._customer_service.get_customer(account.customer_id)
+        return PayeeOut(account_id=account.id, name=masked_name(customer.name))
 
     def delete_account(self, account_id: int) -> None:
         self.get_account(account_id)

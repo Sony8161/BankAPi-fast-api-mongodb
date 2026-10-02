@@ -42,3 +42,15 @@ export async function transfer(fromAccountId, toAccountId, amount) {
   const res = await api.post('/transfers', { fromAccountId, toAccountId, amount })
   return res.data // the audit record of the transfer
 }
+
+// Confirmation of payee: who owns an account number, as "Jane S.", before you send money.
+export async function getPayee(id) {
+  const res = await api.get(`/accounts/${id}/payee`)
+  return res.data // { accountId, name }
+}
+
+// The owner's own labels for an account. Never changes the balance.
+export async function updateAccountSettings(id, { nickname, goal }) {
+  const res = await api.patch(`/accounts/${id}/settings`, { nickname, goal })
+  return res.data
+}
